@@ -1,0 +1,167 @@
+syntax = "proto3";
+
+// Minimal re-declaration of the EdgeDepth terminal wire contract.
+//
+// This file declares ONLY the messages this gateway emits. The terminal's
+// full contract lives in protos/messages.proto in the edgedepth-terminal
+// repo and carries dozens of messages a Binance-only gateway can never
+// produce. Field numbers here MUST match that file exactly: they are the
+// wire format, and a mismatch fails silently rather than loudly.
+//
+// package pb matches the terminal so the generated types line up 1:1.
+
+package pb;
+
+option go_package = "github.com/edgedepthhq/edgedepth-gateway/pkg/pb";
+
+message Pair {
+    string exchange = 1;
+    string symbol = 2;
+}
+
+message BookLevel {
+    double price = 1;
+    double size = 2;
+}
+
+// Only the stream ids this gateway serves. The terminal's enum runs to 35;
+// the gaps here are deliberate, not omissions.
+enum Stream {
+    STREAM_UNKNOWN = 0;
+    STREAM_TRADES = 1;
+    STREAM_CANDLES = 2;
+    STREAM_ORDERBOOK = 3;
+    STREAM_STATS = 4;
+    STREAM_LIQUIDATIONS = 5;
+    STREAM_HISTORICAL_CANDLES = 8;
+    STREAM_TICK_VOLUME = 17;
+    STREAM_TICKER24H = 29;
+}
+
+message WSPayload {
+    Pair pair = 1;
+    Stream stream = 2;
+    int64 timeframe = 3;
+    bytes data = 4;
+    int64 event_time_ms = 5;
+}
+
+message Trade {
+    double price = 1;
+    double qty = 2;
+    bool is_buy = 3;
+    int64 timestamp_ms = 4;
+}
+
+message Candle {
+    double open = 1;
+    double high = 2;
+    double low = 3;
+    double close = 4;
+    double volume = 5;
+    double vbuy = 6;
+    double vsell = 7;
+    int64 tbuy = 8;
+    int64 tsell = 9;
+    int64 timestamp_ms = 10;
+    int64 timeframe = 11;
+    bool final = 12;
+}
+
+message Candles {
+    int64 timeframe = 1;
+    repeated Candle values = 2;
+}
+
+message Stat {
+    double mark_price = 1;
+    double funding = 2;
+    int64 timestamp_ms = 3;
+    bool final = 4;
+    int64 timeframe = 5;
+    double liq_long_volume = 6;
+    double liq_short_volume = 7;
+    double liq_long_usd = 8;
+    double liq_short_usd = 9;
+    double liq_total_usd = 10;
+    double liq_ratio = 11;
+    int64 trade_buy = 12;
+    int64 trade_sell = 13;
+    double open_interest_usd = 14;
+    int64 next_funding_time = 15;
+    double oi_open = 16;
+    double oi_high = 17;
+    double oi_low = 18;
+    double oi_close = 19;
+}
+
+message Stats {
+    int64 timeframe = 1;
+    repeated Stat values = 2;
+}
+
+// Field numbers mirror the backend's canonical LiquidationUpdate. The
+// terminal proto carries an explicit do-not-renumber warning here: an
+// earlier client numbering (price=1) collided varint against fixed64 and
+// failed silently on every frame. Do not "tidy" these.
+message Liquidation {
+    int64 timestamp_ms = 1;
+    double price = 2;
+    double avg_price = 3;
+    double qty = 4;
+    bool is_buy = 5;
+}
+
+message BookUpdate {
+    int64 timestamp_ms = 1;
+    repeated BookLevel asks = 2;
+    repeated BookLevel bids = 3;
+    bool snapshot = 4;
+    double last_price = 5;
+    int64 first_update_id = 6;
+    int64 last_update_id = 7;
+    int64 previous_update_id = 8;
+}
+
+message TickVolumeLevel {
+    double price = 1;
+    double buy_volume = 2;
+    double sell_volume = 3;
+    double total_volume = 4;
+    int64 trade_count = 5;
+}
+
+message TickVolumeLevels {
+    repeated TickVolumeLevel levels = 1;
+}
+
+message TickVolumeUpdate {
+    reserved 1;                 // backend has common.Pair here; omitted on wire
+    int64 timestamp_ms = 2;
+    int64 timeframe = 3;
+    int64 start_time = 4;
+    int64 end_time = 5;
+    bytes levels_data = 6;      // ZSTD-compressed TickVolumeLevels
+    double total_volume = 7;
+    double buy_volume = 8;
+    double sell_volume = 9;
+    int64 trade_count = 10;
+    double high_price = 11;
+    double low_price = 12;
+    double poc = 13;
+    double vah = 14;
+    double val = 15;
+}
+
+message Ticker24hEntry {
+    string symbol = 1;          // uppercase, matches Binance
+    double last_price = 2;
+    double change_pct = 3;
+    double volume_quote = 4;
+    int64 event_time_ms = 5;
+}
+
+message Ticker24hUpdate {
+    repeated Ticker24hEntry entries = 1;
+    int64 timestamp_ms = 2;
+}
