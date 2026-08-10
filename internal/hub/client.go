@@ -222,13 +222,14 @@ func (h *Hub) handle(ctx context.Context, c *Client, req *request) {
 		h.Unsubscribe(c, req.key())
 
 	case "get_historical_candles":
+		ex := req.Data.Pair.Exchange
 		sym := req.Data.Pair.Symbol
 		tf := req.Data.Timeframe
 		count := req.Data.Count
 		end := req.Data.EndTime
-		// REST call: do not block the read loop, or a slow Binance response
+		// REST call: do not block the read loop, or a slow venue response
 		// stalls every later control message from this client.
-		go h.HistoricalCandles(ctx, c, sym, tf, count, end)
+		go h.HistoricalCandles(ctx, c, ex, sym, tf, count, end)
 
 	case "get_footprint_history", "get_volume_profile",
 		"get_historical_heatmap", "get_replay_preview_candles",

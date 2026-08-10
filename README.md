@@ -102,6 +102,12 @@ renders without them.
 terminal's `protos/messages.proto` exactly, because a mismatch fails silently
 rather than loudly.
 
+**Venues are pluggable.** Everything Binance-specific sits behind the
+`Exchange` interface in `internal/exchange`; the hub only knows streams,
+candle aggregation and fan-out. Adding Bybit, OKX, Hyperliquid or anything
+else with public market data is one adapter package plus one registration
+line. [CONTRIBUTING.md](CONTRIBUTING.md) has the walkthrough.
+
 ## Development
 
 ```bash

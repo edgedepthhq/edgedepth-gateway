@@ -9,14 +9,13 @@ import (
 	"sync"
 	"time"
 
-	"google.golang.org/protobuf/proto"
-
+	"github.com/edgedepthhq/edgedepth-gateway/internal/exchange"
 	"github.com/edgedepthhq/edgedepth-gateway/pkg/pb"
 )
 
 // Emit hands a decoded market message to the hub. timeframe is 0 for
 // non-timeframed streams.
-type Emit func(stream pb.Stream, timeframe int64, eventTimeMs int64, inner proto.Message)
+type Emit = exchange.Emit
 
 // Feed owns every upstream Binance stream for one symbol and turns them into
 // EdgeDepth protobuf messages.

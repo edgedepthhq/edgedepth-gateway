@@ -46,7 +46,7 @@ func TestLiveBinanceRoundTrip(t *testing.T) {
 		binance.TradeStream = ts
 	}
 	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
-	h := hub.New(log)
+	h := hub.New(log, binance.New(log))
 
 	srv := httptest.NewServer(http.HandlerFunc(h.ServeWS))
 	defer srv.Close()
@@ -124,7 +124,12 @@ func TestLiveBinanceRoundTrip(t *testing.T) {
 		if env.Stream == pb.Stream_STREAM_STATS {
 			var b pb.Stats
 			if proto.Unmarshal(env.Data, &b) == nil && len(b.Values) > 0 {
-				lastStat.Store(b.Values[0])
+				// Keep the first mark-priced stat once one arrives: the mark
+				// comes from the REST premiumIndex poll on networks without
+				// the markPrice stream, and later flushes never regress it.
+				if cur, ok := lastStat.Load().(*pb.Stat); !ok || cur.MarkPrice <= 0 {
+					lastStat.Store(b.Values[0])
+				}
 			}
 		}
 
@@ -142,7 +147,10 @@ func TestLiveBinanceRoundTrip(t *testing.T) {
 		t.Logf("first %-28s %s", env.Stream.String(), desc)
 
 		// Stop once we have the streams that do not depend on a liquidation
-		// happening to fire during the window.
+		// happening to fire during the window, AND a mark price. The mark
+		// arrives via the REST premiumIndex poll a few hundred ms in, later
+		// than the first stats flush, so leaving early without it makes the
+		// assertion below race the poll.
 		mu.Lock()
 		enough := samples[pb.Stream_STREAM_TRADES] != "" &&
 			samples[pb.Stream_STREAM_ORDERBOOK] != "" &&
@@ -152,7 +160,9 @@ func TestLiveBinanceRoundTrip(t *testing.T) {
 			true
 		mu.Unlock()
 		if enough {
-			break
+			if st, ok := lastStat.Load().(*pb.Stat); ok && st.MarkPrice > 0 {
+				break
+			}
 		}
 	}
 

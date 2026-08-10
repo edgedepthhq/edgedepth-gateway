@@ -9,11 +9,6 @@ import (
 	"github.com/edgedepthhq/edgedepth-gateway/pkg/pb"
 )
 
-// GlobalSymbol is the sentinel the terminal subscribes with for the 24h
-// ticker feed: Pair{"binancef", "global"}, not a real instrument. Treating it
-// as a symbol and opening an upstream feed for it would 400 against Binance.
-const GlobalSymbol = "global"
-
 // EventType exists to absorb the "e" key. See the note on depthDiff in
 // feed.go: without it Go's case-insensitive fallback assigns "e" to "E" and
 // every message fails to unmarshal.

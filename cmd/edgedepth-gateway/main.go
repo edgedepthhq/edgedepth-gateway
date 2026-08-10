@@ -59,14 +59,14 @@ func main() {
 		syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	h := hub.New(log)
+	// The venue registry. Adding an exchange is one adapter package plus one
+	// entry here; see CONTRIBUTING.md.
+	h := hub.New(log, binance.New(log))
 
 	// The symbol whitelist is a nicety, not a requirement: without it the
-	// gateway still runs and Binance rejects bad symbols itself.
+	// gateway still runs and the venue rejects bad symbols itself.
 	loadCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
-	if err := h.LoadSymbols(loadCtx); err != nil {
-		log.Warn("could not load symbol list, continuing without validation", "err", err)
-	}
+	_ = h.LoadSymbols(loadCtx)
 	cancel()
 
 	mux := http.NewServeMux()
