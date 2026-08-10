@@ -5,8 +5,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/edgedepthhq/edgedepth-gateway/internal/exchange"
 	"github.com/edgedepthhq/edgedepth-gateway/internal/candle"
+	"github.com/edgedepthhq/edgedepth-gateway/internal/exchange"
 	"github.com/edgedepthhq/edgedepth-gateway/pkg/pb"
 )
 
