@@ -218,6 +218,48 @@ func OpenInterest(ctx context.Context, symbol string) (float64, error) {
 	return strconv.ParseFloat(out.OpenInterest, 64)
 }
 
+// Ticker24h is one symbol's rolling 24h window, the REST equivalent of one
+// entry in a !ticker@arr push.
+type Ticker24h struct {
+	Symbol      string
+	LastPrice   float64
+	ChangePct   float64
+	VolumeQuote float64
+	EventTimeMs int64
+}
+
+// Tickers24h fetches the rolling 24h window for every symbol in one call.
+//
+// It exists for the same reason Premium does: the WebSocket stream behind it
+// is not reachable from every network, and without it the terminal's watchlist
+// has no last price and no 24h change for any row. Binance weights the
+// no-symbol form at 40, so a 30s poll is comfortable against 2400/min.
+func Tickers24h(ctx context.Context) ([]Ticker24h, error) {
+	var out []struct {
+		Symbol string `json:"symbol"`
+		// priceChangePercent, not priceChange: the terminal renders this as a
+		// percentage and shows it raw.
+		ChangePct string `json:"priceChangePercent"`
+		LastPrice string `json:"lastPrice"`
+		QuoteVol  string `json:"quoteVolume"`
+		CloseTime int64  `json:"closeTime"`
+	}
+	if err := getJSON(ctx, "/fapi/v1/ticker/24hr", nil, &out); err != nil {
+		return nil, err
+	}
+	res := make([]Ticker24h, 0, len(out))
+	for _, e := range out {
+		res = append(res, Ticker24h{
+			Symbol:      e.Symbol,
+			LastPrice:   parseF(e.LastPrice),
+			ChangePct:   parseF(e.ChangePct),
+			VolumeQuote: parseF(e.QuoteVol),
+			EventTimeMs: e.CloseTime,
+		})
+	}
+	return res, nil
+}
+
 // ExchangeSymbols returns the tradable USD-M perpetual symbols, lowercased.
 // Used to validate what a client asks for before opening an upstream socket.
 func ExchangeSymbols(ctx context.Context) (map[string]bool, error) {

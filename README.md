@@ -45,13 +45,14 @@ Everything here is computed from Binance's free public data. No key, no tier.
 | 1s / 5s / 15s / 30s candles | yes | built trade by trade from the raw stream |
 | DOM ladder and orderbook | yes | REST snapshot plus diff stream, sequence checked |
 | Trade tape | yes | |
-| Stats: mark price, funding, open interest | yes | |
+| Stats: mark price, funding, open interest | yes | REST polled, so they fill on a symbol that has not traded |
+| Watchlist prices and 24h change | yes | `!ticker@arr`, falling back to REST when that stream is blocked |
 | Liquidations and the liquidation Field | yes | Field is computed client side from candles |
-| VPVR, TPO, paper trading, watchlist | yes | all client side |
+| Paper trading | yes | entirely client side |
 | Historical backfill (1m and above) | yes | Binance REST klines |
 | VPIN, positioning, modelled liq heatmap | no | hosted backend only |
 | Patterns, scanner scores, contagion | no | hosted backend only |
-| Footprint history, volume profile history | no | live only, no REST source |
+| VPVR, footprint history, volume profile history | no | needs recorded per-price volume, which this gateway does not keep |
 
 Sub-minute candles are accumulated from individual trades as they arrive. The
 building candle therefore moves trade by trade instead of waiting for a closed
@@ -75,6 +76,11 @@ Every flag has an environment variable equivalent.
 `-trade-stream=trade`. Some networks do not serve Binance's `@aggTrade`
 stream. The gateway logs a warning naming this exact fix when it sees a live
 orderbook and no trades after 30 seconds.
+
+The all-market `!ticker@arr` stream is blocked on some of the same networks,
+which would leave every watchlist row showing a symbol and no numbers. That
+one needs no flag: the gateway notices the silence and serves the same data
+from REST every 30 seconds instead, and says so in the log.
 
 ## How it works
 
@@ -119,13 +125,24 @@ go test ./...
 EDGEDEPTH_LIVE=1 go test ./internal/hub -run TestLive -v
 ```
 
-The live probe is the useful one. It catches the failure mode this wire format
-is prone to, which is a field that decodes cleanly into the wrong place. Two
-real examples, both caught by it and both fixed here: Binance sends `e` and
-`E` in the same object, and Go's case-insensitive JSON fallback puts the event
-type string into the event time int; the `@trade` payload likewise sends `T`
-and `t`, which lands the trade id in the timestamp and produces a plausible
-looking number that is off by three orders of magnitude.
+Both suites exist to catch one failure mode: a field that decodes cleanly into
+the wrong place. Nothing errors, the panel just goes blank or shows a plausible
+wrong number, usually minutes later.
+
+`internal/hub/wire_shape_test.go` needs no network. A stub venue drives a trade
+through the real subscribe, aggregate, flush and encode path, and every frame is
+then decoded the way `c-based-trader-client` decodes it rather than the way this
+gateway encoded it. That distinction is the whole point: live candles went out
+wrapped in the plural `Candles` while the terminal parsed a singular `Candle`,
+and because proto3 skips mismatched fields as unknown, the parse succeeded and
+handed the chart a candle of all zeros.
+
+The live probe covers what a stub cannot, which is Binance's own JSON. Two real
+examples it caught: Binance sends `e` and `E` in the same object and Go's
+case-insensitive fallback puts the event type string into the event time int;
+the `@trade` payload sends `T` and `t`, which lands the trade id in the
+timestamp and produces a number that looks plausible and is off by three orders
+of magnitude.
 
 ## License
 
