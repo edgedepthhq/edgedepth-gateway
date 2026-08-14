@@ -336,8 +336,20 @@ func (h *Hub) emitCandle(fk feedKey, tf int64, c *pb.Candle, st *pb.Stat) {
 			&pb.Candles{Timeframe: tf, Values: []*pb.Candle{c}})
 	}
 	if st != nil {
-		h.broadcast(fk.Exchange, fk.Symbol, pb.Stream_STREAM_STATS, tf, st.TimestampMs,
-			&pb.Stats{Timeframe: tf, Values: []*pb.Stat{st}})
+		stats := &pb.Stats{Timeframe: tf, Values: []*pb.Stat{st}}
+		// The terminal subscribes STREAM_STATS with three different timeframe
+		// conventions, all observed on the wire: the chart's OI overlay uses
+		// MILLISECONDS (tf_sec*1000, e.g. 300000 on the 5m chart), the stats
+		// panel uses seconds, and one path subscribes with 0. Frames dispatch
+		// client-side by exact (stream, timeframe) key match against the
+		// subscribed value, so the envelope must echo the subscriber's own
+		// convention. Broadcast under each alias; broadcast() encodes nothing
+		// when no client holds a key, so unused aliases cost one map scan.
+		h.broadcast(fk.Exchange, fk.Symbol, pb.Stream_STREAM_STATS, tf, st.TimestampMs, stats)
+		h.broadcast(fk.Exchange, fk.Symbol, pb.Stream_STREAM_STATS, tf*1000, st.TimestampMs, stats)
+		if tf == 1 {
+			h.broadcast(fk.Exchange, fk.Symbol, pb.Stream_STREAM_STATS, 0, st.TimestampMs, stats)
+		}
 	}
 }
 
