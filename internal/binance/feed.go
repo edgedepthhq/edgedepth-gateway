@@ -272,30 +272,39 @@ func (f *Feed) pollREST(ctx context.Context) {
 	tick := time.NewTicker(30 * time.Second)
 	defer tick.Stop()
 	for {
-		if oi, err := OpenInterest(ctx, f.Symbol); err == nil {
-			f.mu.Lock()
-			f.openInt = oi
-			f.mu.Unlock()
-		} else if ctx.Err() == nil {
-			f.log.Debug("open interest poll failed", "err", err)
-		}
+		// Fetch both before publishing either. Applying them as they arrived
+		// let a stats flush land in the gap and ship a frame carrying open
+		// interest with a zero mark price, which the panel renders as a
+		// confident "0.00" rather than leaving the field blank.
+		oi, oiErr := OpenInterest(ctx, f.Symbol)
+		prem, premErr := Premium(ctx, f.Symbol)
 
-		if p, err := Premium(ctx, f.Symbol); err == nil {
-			f.mu.Lock()
+		f.mu.Lock()
+		if oiErr == nil {
+			f.openInt = oi
+		}
+		if premErr == nil {
 			// The WebSocket stream, when it works, is fresher than a 30s
 			// poll, so only fill in what is still missing.
 			if f.markPrice == 0 {
-				f.markPrice = p.MarkPrice
+				f.markPrice = prem.MarkPrice
 			}
 			if f.funding == 0 {
-				f.funding = p.LastFundingRate
+				f.funding = prem.LastFundingRate
 			}
 			if f.nextFunding == 0 {
-				f.nextFunding = p.NextFundingTime
+				f.nextFunding = prem.NextFundingTime
 			}
-			f.mu.Unlock()
-		} else if ctx.Err() == nil {
-			f.log.Debug("premium index poll failed", "err", err)
+		}
+		f.mu.Unlock()
+
+		if ctx.Err() == nil {
+			if oiErr != nil {
+				f.log.Debug("open interest poll failed", "err", oiErr)
+			}
+			if premErr != nil {
+				f.log.Debug("premium index poll failed", "err", premErr)
+			}
 		}
 
 		select {
