@@ -332,8 +332,18 @@ func (h *Hub) flushLoop(ctx context.Context, fk feedKey, sf *symbolFeed) {
 
 func (h *Hub) emitCandle(fk feedKey, tf int64, c *pb.Candle, st *pb.Stat) {
 	if c != nil {
-		h.broadcast(fk.Exchange, fk.Symbol, pb.Stream_STREAM_CANDLES, tf, c.TimestampMs,
-			&pb.Candles{Timeframe: tf, Values: []*pb.Candle{c}})
+		// SINGULAR on the live stream, and this is not a style choice. The
+		// terminal's handle_candle_message parses STREAM_CANDLES as a bare
+		// pb::Candle with no plural fallback, unlike stats and volumes which
+		// try the batch first. Proto3 does not reject the wrong shape: every
+		// Candles field number collides with a different wire type in Candle,
+		// both sides skip everything as unknown fields, ParseFromArray returns
+		// TRUE, and the terminal gets a candle of all zeros at timestamp 0.
+		// That zero candle sorts to the back of the series, inverts the
+		// chart's X range and blanks it until the timeframe is changed.
+		// STREAM_HISTORICAL_CANDLES stays plural: handle_historical_candles
+		// parses pb::Candles, and a batch is the whole point there.
+		h.broadcast(fk.Exchange, fk.Symbol, pb.Stream_STREAM_CANDLES, tf, c.TimestampMs, c)
 	}
 	if st != nil {
 		stats := &pb.Stats{Timeframe: tf, Values: []*pb.Stat{st}}

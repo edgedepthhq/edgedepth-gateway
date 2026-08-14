@@ -232,7 +232,32 @@ func describe(env *pb.WSPayload) (string, error) {
 		return fmt.Sprintf("snapshot=%v bids=%d asks=%d last_u=%d",
 			m.Snapshot, len(m.Bids), len(m.Asks), m.LastUpdateId), nil
 
-	case pb.Stream_STREAM_CANDLES, pb.Stream_STREAM_HISTORICAL_CANDLES:
+	case pb.Stream_STREAM_CANDLES:
+		// SINGULAR, decoded exactly the way handle_candle_message does it.
+		// Decoding a live frame as the plural pb.Candles also "succeeds" and
+		// yields nothing, which is precisely the bug this probe exists to
+		// catch, so the shape here has to match the terminal and not the
+		// gateway's own idea of what it sent.
+		var m pb.Candle
+		if err := proto.Unmarshal(env.Data, &m); err != nil {
+			return "", err
+		}
+		if m.Close <= 0 {
+			return "", fmt.Errorf("live candle has no close price when parsed "+
+				"the way the terminal parses it, so the wire shape is wrong: %+v", &m)
+		}
+		if m.TimestampMs < 1e12 {
+			return "", fmt.Errorf("candle timestamp %d is not a ms epoch", m.TimestampMs)
+		}
+		if m.Timeframe != env.Timeframe {
+			return "", fmt.Errorf("timeframe mismatch: envelope=%d inner=%d",
+				env.Timeframe, m.Timeframe)
+		}
+		return fmt.Sprintf("tf=%ds o=%.2f h=%.2f l=%.2f c=%.2f vol=%g ts=%d final=%v",
+			m.Timeframe, m.Open, m.High, m.Low, m.Close, m.Volume, m.TimestampMs, m.Final), nil
+
+	case pb.Stream_STREAM_HISTORICAL_CANDLES:
+		// PLURAL: handle_historical_candles parses the batch.
 		var m pb.Candles
 		if err := proto.Unmarshal(env.Data, &m); err != nil {
 			return "", err
