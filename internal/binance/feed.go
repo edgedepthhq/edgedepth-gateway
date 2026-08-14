@@ -188,6 +188,16 @@ func (f *Feed) onAggTrade(raw json.RawMessage) {
 	price := parseF(t.Price)
 	qty := parseF(t.Qty)
 
+	// The raw @trade stream carries occasional non-market events ("X":"NA")
+	// with price and qty both "0". Folding one into a candle zeroes its
+	// low/close until the next real trade repairs them, and the flush loop
+	// ships that window to every chart, where autoscale stretches the y-axis
+	// to zero. @aggTrade never delivers these, so the hosted backend has
+	// never needed this guard.
+	if price <= 0 || qty <= 0 {
+		return
+	}
+
 	f.mu.Lock()
 	f.lastTrade = price
 	f.tradeCount++

@@ -42,7 +42,7 @@ Everything here is computed from Binance's free public data. No key, no tier.
 | Feature | Works | Notes |
 | --- | --- | --- |
 | Candlestick chart | yes | history from Binance REST klines |
-| 1s / 5s / 15s / 30s candles | yes | built from the trade stream, no exchange source exists |
+| 1s / 5s / 15s / 30s candles | yes | built trade by trade from the raw stream |
 | DOM ladder and orderbook | yes | REST snapshot plus diff stream, sequence checked |
 | Trade tape | yes | |
 | Stats: mark price, funding, open interest | yes | |
@@ -53,10 +53,10 @@ Everything here is computed from Binance's free public data. No key, no tier.
 | Patterns, scanner scores, contagion | no | hosted backend only |
 | Footprint history, volume profile history | no | live only, no REST source |
 
-Sub-minute candles are the interesting one. Binance's smallest kline is one
-minute, so 1s candles cannot be fetched from anywhere; they are accumulated
-from individual trades as they arrive. The terminal renders them because its
-entitlements default to Pro when no host globals are present.
+Sub-minute candles are accumulated from individual trades as they arrive. The
+building candle therefore moves trade by trade instead of waiting for a closed
+bar. The terminal renders them because its entitlements default to Pro when no
+host globals are present.
 
 ## Configuration
 

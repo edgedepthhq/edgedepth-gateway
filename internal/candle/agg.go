@@ -161,9 +161,17 @@ func (s *Series) Tick(nowMs int64) (closed *pb.Candle, closedStat *pb.Stat) {
 	return nil, nil
 }
 
+// priced reports whether a candle carries a real price. Before the first
+// trade, and with no previous close to open flat at, every OHLC field is
+// zero, and such a candle must never reach the wire: the chart autoscales to
+// include it and the real price compresses into a line at the top.
+func priced(c *pb.Candle) bool {
+	return c != nil && (c.Open != 0 || c.High != 0 || c.Low != 0 || c.Close != 0)
+}
+
 // rollLocked closes the current bucket and opens one at b.
 func (s *Series) rollLocked(b int64) (closed *pb.Candle, closedStat *pb.Stat) {
-	if s.started && s.candle != nil {
+	if s.started && priced(s.candle) {
 		c := cloneCandle(s.candle)
 		c.Final = true
 		closed = c
@@ -181,7 +189,12 @@ func (s *Series) rollLocked(b int64) (closed *pb.Candle, closedStat *pb.Stat) {
 	if s.markFn != nil {
 		mark, funding, oi, nextFunding = s.markFn()
 	}
-	oiUsd := oi * mark
+	// open_interest_usd carries CONTRACT QTY despite its name: the hosted
+	// backend's stat sampler says so explicitly (actor/stat/stat.go
+	// SetOpenInterest) and the terminal's stats panel multiplies the field by
+	// mark price to get notional. Sending USD here made the panel display
+	// contracts*mark*mark, off by a factor of the price.
+	oiContracts := oi
 
 	// A new candle opens flat at the previous close so gaps do not render as
 	// a drop to zero on an illiquid symbol.
@@ -198,16 +211,20 @@ func (s *Series) rollLocked(b int64) (closed *pb.Candle, closedStat *pb.Stat) {
 		Funding:         funding,
 		TimestampMs:     b,
 		Timeframe:       s.TfSec,
-		OpenInterestUsd: oiUsd,
+		OpenInterestUsd: oiContracts,
 		NextFundingTime: nextFunding,
-		OiOpen:          oiUsd,
-		OiHigh:          oiUsd,
-		OiLow:           oiUsd,
-		OiClose:         oiUsd,
+		OiOpen:          oiContracts,
+		OiHigh:          oiContracts,
+		OiLow:           oiContracts,
+		OiClose:         oiContracts,
 	}
 	s.bucket = b
 	s.started = true
-	s.dirty = true
+	// A bucket that opens with no previous close has no price to show yet, so
+	// there is nothing worth flushing; dirty flips on the first real trade.
+	// Marking it dirty here would stream all-zero candles every Tick until a
+	// trade arrives.
+	s.dirty = prevClose != 0
 	return closed, closedStat
 }
 
@@ -217,24 +234,26 @@ func (s *Series) rollLocked(b int64) (closed *pb.Candle, closedStat *pb.Stat) {
 func (s *Series) Current() (c *pb.Candle, st *pb.Stat, dirty bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if !s.started {
+	// A started series whose candle has never seen a price is withheld the
+	// same way an unstarted one is; see priced.
+	if !s.started || !priced(s.candle) {
 		return nil, nil, false
 	}
 	// Refresh the live OI/mark on the open stat so the panel tracks between
 	// bucket boundaries.
 	if s.markFn != nil {
 		mark, funding, oi, nextFunding := s.markFn()
-		oiUsd := oi * mark
+		// Contracts, not USD; see the note in rollLocked.
 		s.stat.MarkPrice = mark
 		s.stat.Funding = funding
 		s.stat.NextFundingTime = nextFunding
-		s.stat.OiClose = oiUsd
-		s.stat.OpenInterestUsd = oiUsd
-		if oiUsd > s.stat.OiHigh {
-			s.stat.OiHigh = oiUsd
+		s.stat.OiClose = oi
+		s.stat.OpenInterestUsd = oi
+		if oi > s.stat.OiHigh {
+			s.stat.OiHigh = oi
 		}
-		if oiUsd < s.stat.OiLow || s.stat.OiLow == 0 {
-			s.stat.OiLow = oiUsd
+		if oi < s.stat.OiLow || s.stat.OiLow == 0 {
+			s.stat.OiLow = oi
 		}
 	}
 	d := s.dirty

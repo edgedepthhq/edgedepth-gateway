@@ -201,7 +201,10 @@ func Premium(ctx context.Context, symbol string) (*PremiumIndex, error) {
 	}, nil
 }
 
-// OpenInterest is the current notional open interest for a symbol.
+// OpenInterest is the current open interest for a symbol, in contracts of
+// the base asset, not notional USD. That is what the endpoint returns and
+// also what Stat.open_interest_usd carries despite its name; the terminal
+// multiplies by mark price itself.
 func OpenInterest(ctx context.Context, symbol string) (float64, error) {
 	var out struct {
 		OpenInterest string `json:"openInterest"`
