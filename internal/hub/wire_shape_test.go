@@ -105,22 +105,41 @@ func (e *stubExchange) waitForFeed(t *testing.T) *stubFeed {
 
 // ── harness ─────────────────────────────────────────────────────────────────
 
-// newProbe stands up a hub over a stub venue and returns a connected client.
-func newProbe(t *testing.T) (*stubExchange, *websocket.Conn) {
+// newHub stands up a hub over a stub venue.
+func newHub(t *testing.T) (*stubExchange, *httptest.Server) {
 	t.Helper()
 	ex := &stubExchange{}
 	h := hub.New(slog.New(slog.NewTextHandler(io.Discard, nil)), ex)
-
 	srv := httptest.NewServer(http.HandlerFunc(h.ServeWS))
 	t.Cleanup(srv.Close)
+	return ex, srv
+}
 
+// dial connects one terminal to a hub. Several may share one.
+func dial(t *testing.T, srv *httptest.Server, readTimeout time.Duration) *websocket.Conn {
+	t.Helper()
 	conn, _, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(srv.URL, "http"), nil)
 	if err != nil {
 		t.Fatalf("dial gateway: %v", err)
 	}
 	t.Cleanup(func() { _ = conn.Close() })
-	_ = conn.SetReadDeadline(time.Now().Add(10 * time.Second))
-	return ex, conn
+	_ = conn.SetReadDeadline(time.Now().Add(readTimeout))
+	return conn
+}
+
+// newProbe stands up a hub over a stub venue and returns a connected client.
+func newProbe(t *testing.T) (*stubExchange, *websocket.Conn) {
+	t.Helper()
+	ex, srv := newHub(t)
+	return ex, dial(t, srv, 10*time.Second)
+}
+
+func subscribe(t *testing.T, conn *websocket.Conn, sym string, stream pb.Stream, tf int64) {
+	t.Helper()
+	if err := conn.WriteMessage(websocket.TextMessage,
+		[]byte(subMsg("subscribe", sym, stream, tf))); err != nil {
+		t.Fatalf("subscribe %v tf=%d: %v", stream, tf, err)
+	}
 }
 
 // readFrame returns the next payload on the given stream, failing the test if

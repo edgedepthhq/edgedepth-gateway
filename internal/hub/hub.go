@@ -175,17 +175,44 @@ func (h *Hub) Subscribe(c *Client, k wire.Key) {
 	h.acquire(ex, fk)
 
 	// Prime the new subscriber so it is not left waiting for the next event.
-	// An orderbook in particular is meaningless without a base snapshot.
-	if k.Stream == pb.Stream_STREAM_ORDERBOOK {
-		h.mu.RLock()
-		sf := h.feeds[fk]
-		h.mu.RUnlock()
-		if sf != nil {
-			if snap := sf.feed.Snapshot(); snap != nil {
-				h.sendTo(c, k, 0, time.Now().UnixMilli(), snap)
+	h.mu.RLock()
+	sf := h.feeds[fk]
+	h.mu.RUnlock()
+	if sf == nil {
+		return
+	}
+
+	switch k.Stream {
+	case pb.Stream_STREAM_ORDERBOOK:
+		// An orderbook is meaningless without a base snapshot.
+		if snap := sf.feed.Snapshot(); snap != nil {
+			h.sendTo(c, k, 0, time.Now().UnixMilli(), snap)
+		}
+
+	case pb.Stream_STREAM_STATS:
+		// Stats flush only when a value actually changes, so on a symbol with
+		// no trades the next one may be a whole REST poll away. A client that
+		// joined a warm feed would sit on an empty panel for up to 30s.
+		if s := sf.statSeries(k.Timeframe); s != nil {
+			if st := s.Stat(); st != nil {
+				h.sendTo(c, k, k.Timeframe, st.TimestampMs,
+					&pb.Stats{Timeframe: s.TfSec, Values: []*pb.Stat{st}})
 			}
 		}
 	}
+}
+
+// statSeries resolves a STREAM_STATS subscription timeframe to a series. The
+// terminal subscribes this stream with seconds, with milliseconds and with 0
+// depending on which panel is asking; see the note in emitCandle.
+func (sf *symbolFeed) statSeries(tf int64) *candle.Series {
+	if s := sf.series[tf]; s != nil {
+		return s
+	}
+	if tf == 0 {
+		return sf.series[1]
+	}
+	return sf.series[tf/1000]
 }
 
 // Unsubscribe detaches a client from a stream.

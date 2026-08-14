@@ -308,6 +308,19 @@ func (s *Series) Current() (c *pb.Candle, st *pb.Stat) {
 	return c, st
 }
 
+// Stat returns the current stat without consuming its dirty flag, for priming
+// a subscriber that arrived after the last flush. Current cannot serve this:
+// it hands out each value once, so calling it here would swallow the frame
+// every other client is waiting on.
+func (s *Series) Stat() *pb.Stat {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.started || !statReadable(s.stat) {
+		return nil
+	}
+	return cloneStat(s.stat)
+}
+
 // Protobuf messages carry an internal state field that must not be copied by
 // value (go vet flags it, and the copy shares generated-code internals), so
 // these go through proto.Clone rather than a struct assignment.
