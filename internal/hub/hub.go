@@ -321,11 +321,13 @@ func (h *Hub) flushLoop(ctx context.Context, fk feedKey, sf *symbolFeed) {
 			if closed, closedStat := s.Tick(now); closed != nil {
 				h.emitCandle(fk, s.TfSec, closed, closedStat)
 			}
-			c, st, dirty := s.Current()
-			if !dirty || c == nil {
-				continue
+			// Candle and stat are emitted on their own merits. Gating the
+			// stat on a non-nil candle, as this loop used to, meant a symbol
+			// with no trades published no stats either, so mark, funding and
+			// open interest rendered "-" while sitting populated in MarkState.
+			if c, st := s.Current(); c != nil || st != nil {
+				h.emitCandle(fk, s.TfSec, c, st)
 			}
-			h.emitCandle(fk, s.TfSec, c, st)
 		}
 	}
 }

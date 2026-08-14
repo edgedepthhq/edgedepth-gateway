@@ -42,11 +42,18 @@ type MarkFn func() (mark, funding, oi float64, nextFunding int64)
 type Series struct {
 	TfSec int64
 
-	mu      sync.Mutex
-	candle  *pb.Candle
-	stat    *pb.Stat
-	bucket  int64 // current bucket start, ms
-	dirty   bool
+	mu     sync.Mutex
+	candle *pb.Candle
+	stat   *pb.Stat
+	bucket int64 // current bucket start, ms
+
+	// Candle and stat go dirty independently. The candle moves only on trades;
+	// mark price, funding and open interest arrive from a REST poll that owes
+	// nothing to the tape. Sharing one flag meant an untraded symbol published
+	// no stats at all, which is what left the terminal's stats strip empty.
+	candleDirty bool
+	statDirty   bool
+
 	markFn  MarkFn
 	started bool
 }
@@ -119,7 +126,8 @@ func (s *Series) AddTrade(t Trade) (closed *pb.Candle, closedStat *pb.Stat) {
 		c.Tsell++
 		s.stat.TradeSell++
 	}
-	s.dirty = true
+	s.candleDirty = true
+	s.statDirty = true // the trade counts live on the stat
 	return closed, closedStat
 }
 
@@ -145,7 +153,9 @@ func (s *Series) AddLiquidation(l Liquidation) {
 	if s.stat.LiqTotalUsd > 0 {
 		s.stat.LiqRatio = (s.stat.LiqLongUsd - s.stat.LiqShortUsd) / s.stat.LiqTotalUsd
 	}
-	s.dirty = true
+	// Liquidations touch the stat only; the candle is unchanged and does not
+	// need reflushing on their account.
+	s.statDirty = true
 }
 
 // Tick advances the clock to now, closing the bucket if it has elapsed even
@@ -167,6 +177,16 @@ func (s *Series) Tick(nowMs int64) (closed *pb.Candle, closedStat *pb.Stat) {
 // include it and the real price compresses into a line at the top.
 func priced(c *pb.Candle) bool {
 	return c != nil && (c.Open != 0 || c.High != 0 || c.Low != 0 || c.Close != 0)
+}
+
+// statReadable reports whether a stat carries anything the panel can render.
+// An all-zero stat is worse than none: the strip shows a 0.00 mark price
+// instead of the "-" that honestly means "nothing yet". Cold start hits this
+// for the few hundred ms before the first REST poll returns.
+func statReadable(st *pb.Stat) bool {
+	return st != nil && (st.MarkPrice != 0 || st.OpenInterestUsd != 0 ||
+		st.Funding != 0 || st.LiqTotalUsd != 0 ||
+		st.TradeBuy != 0 || st.TradeSell != 0)
 }
 
 // rollLocked closes the current bucket and opens one at b.
@@ -221,44 +241,71 @@ func (s *Series) rollLocked(b int64) (closed *pb.Candle, closedStat *pb.Stat) {
 	s.bucket = b
 	s.started = true
 	// A bucket that opens with no previous close has no price to show yet, so
-	// there is nothing worth flushing; dirty flips on the first real trade.
-	// Marking it dirty here would stream all-zero candles every Tick until a
-	// trade arrives.
-	s.dirty = prevClose != 0
+	// there is nothing worth flushing; the candle goes dirty on the first real
+	// trade. Marking it dirty here would stream all-zero candles every Tick
+	// until one arrives.
+	s.candleDirty = prevClose != 0
+	// The stat is new regardless. It carries this bucket's opening mark,
+	// funding and open interest, none of which needed a trade to exist.
+	s.statDirty = true
 	return closed, closedStat
 }
 
-// Current returns a copy of the in-progress candle and stat, or nil if the
-// series has not started. dirty reports whether anything changed since the
-// last call, so the caller can skip an unchanged emission.
-func (s *Series) Current() (c *pb.Candle, st *pb.Stat, dirty bool) {
+// refreshMarkLocked pulls the latest mark, funding and open interest onto the
+// open stat so the panel tracks between bucket boundaries, and reports a real
+// change by setting statDirty. The change check is what keeps this from
+// reflushing an identical stat on every 100ms flush tick.
+func (s *Series) refreshMarkLocked() {
+	if s.markFn == nil || s.stat == nil {
+		return
+	}
+	mark, funding, oi, nextFunding := s.markFn()
+	if mark == s.stat.MarkPrice && funding == s.stat.Funding &&
+		oi == s.stat.OiClose && nextFunding == s.stat.NextFundingTime {
+		return
+	}
+	s.stat.MarkPrice = mark
+	s.stat.Funding = funding
+	s.stat.NextFundingTime = nextFunding
+	// Contracts, not USD; see the note in rollLocked.
+	s.stat.OiClose = oi
+	s.stat.OpenInterestUsd = oi
+	if oi > s.stat.OiHigh {
+		s.stat.OiHigh = oi
+	}
+	if oi < s.stat.OiLow || s.stat.OiLow == 0 {
+		s.stat.OiLow = oi
+	}
+	s.statDirty = true
+}
+
+// Current returns the in-progress candle and stat. Either is nil when it has
+// nothing new worth sending, so a caller emits whatever it is handed and skips
+// the rest.
+//
+// The two are deliberately independent. The candle is withheld until a trade
+// has priced it (see priced), because an unpriced one is all zeros and the
+// chart autoscales to include it. The stat is not withheld on that basis: mark
+// price, funding and open interest come from the REST poll, so a symbol that
+// has not traded in this bucket still has a stats panel worth filling. Tying
+// the stat to the candle flush is what left the terminal's stats strip reading
+// "-" with a healthy feed and live values sitting in MarkState.
+func (s *Series) Current() (c *pb.Candle, st *pb.Stat) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	// A started series whose candle has never seen a price is withheld the
-	// same way an unstarted one is; see priced.
-	if !s.started || !priced(s.candle) {
-		return nil, nil, false
+	if !s.started {
+		return nil, nil
 	}
-	// Refresh the live OI/mark on the open stat so the panel tracks between
-	// bucket boundaries.
-	if s.markFn != nil {
-		mark, funding, oi, nextFunding := s.markFn()
-		// Contracts, not USD; see the note in rollLocked.
-		s.stat.MarkPrice = mark
-		s.stat.Funding = funding
-		s.stat.NextFundingTime = nextFunding
-		s.stat.OiClose = oi
-		s.stat.OpenInterestUsd = oi
-		if oi > s.stat.OiHigh {
-			s.stat.OiHigh = oi
-		}
-		if oi < s.stat.OiLow || s.stat.OiLow == 0 {
-			s.stat.OiLow = oi
-		}
+	s.refreshMarkLocked()
+	if s.candleDirty && priced(s.candle) {
+		c = cloneCandle(s.candle)
+		s.candleDirty = false
 	}
-	d := s.dirty
-	s.dirty = false
-	return cloneCandle(s.candle), cloneStat(s.stat), d
+	if s.statDirty && statReadable(s.stat) {
+		st = cloneStat(s.stat)
+		s.statDirty = false
+	}
+	return c, st
 }
 
 // Protobuf messages carry an internal state field that must not be copied by
