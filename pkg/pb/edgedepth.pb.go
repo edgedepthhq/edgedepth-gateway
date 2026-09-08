@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v3.21.12
-// source: proto/edgedepth.proto
+// source: edgedepth.proto
 
 // Minimal re-declaration of the EdgeDepth terminal wire contract.
 //
@@ -44,6 +44,7 @@ const (
 	Stream_STREAM_LIQUIDATIONS       Stream = 5
 	Stream_STREAM_HISTORICAL_CANDLES Stream = 8
 	Stream_STREAM_TICK_VOLUME        Stream = 17
+	Stream_STREAM_VOLUME_PROFILE     Stream = 26
 	Stream_STREAM_TICKER24H          Stream = 29
 )
 
@@ -58,6 +59,7 @@ var (
 		5:  "STREAM_LIQUIDATIONS",
 		8:  "STREAM_HISTORICAL_CANDLES",
 		17: "STREAM_TICK_VOLUME",
+		26: "STREAM_VOLUME_PROFILE",
 		29: "STREAM_TICKER24H",
 	}
 	Stream_value = map[string]int32{
@@ -69,6 +71,7 @@ var (
 		"STREAM_LIQUIDATIONS":       5,
 		"STREAM_HISTORICAL_CANDLES": 8,
 		"STREAM_TICK_VOLUME":        17,
+		"STREAM_VOLUME_PROFILE":     26,
 		"STREAM_TICKER24H":          29,
 	}
 )
@@ -84,11 +87,11 @@ func (x Stream) String() string {
 }
 
 func (Stream) Descriptor() protoreflect.EnumDescriptor {
-	return file_proto_edgedepth_proto_enumTypes[0].Descriptor()
+	return file_edgedepth_proto_enumTypes[0].Descriptor()
 }
 
 func (Stream) Type() protoreflect.EnumType {
-	return &file_proto_edgedepth_proto_enumTypes[0]
+	return &file_edgedepth_proto_enumTypes[0]
 }
 
 func (x Stream) Number() protoreflect.EnumNumber {
@@ -97,7 +100,7 @@ func (x Stream) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Stream.Descriptor instead.
 func (Stream) EnumDescriptor() ([]byte, []int) {
-	return file_proto_edgedepth_proto_rawDescGZIP(), []int{0}
+	return file_edgedepth_proto_rawDescGZIP(), []int{0}
 }
 
 type Pair struct {
@@ -110,7 +113,7 @@ type Pair struct {
 
 func (x *Pair) Reset() {
 	*x = Pair{}
-	mi := &file_proto_edgedepth_proto_msgTypes[0]
+	mi := &file_edgedepth_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -122,7 +125,7 @@ func (x *Pair) String() string {
 func (*Pair) ProtoMessage() {}
 
 func (x *Pair) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_edgedepth_proto_msgTypes[0]
+	mi := &file_edgedepth_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -135,7 +138,7 @@ func (x *Pair) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Pair.ProtoReflect.Descriptor instead.
 func (*Pair) Descriptor() ([]byte, []int) {
-	return file_proto_edgedepth_proto_rawDescGZIP(), []int{0}
+	return file_edgedepth_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *Pair) GetExchange() string {
@@ -162,7 +165,7 @@ type BookLevel struct {
 
 func (x *BookLevel) Reset() {
 	*x = BookLevel{}
-	mi := &file_proto_edgedepth_proto_msgTypes[1]
+	mi := &file_edgedepth_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -174,7 +177,7 @@ func (x *BookLevel) String() string {
 func (*BookLevel) ProtoMessage() {}
 
 func (x *BookLevel) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_edgedepth_proto_msgTypes[1]
+	mi := &file_edgedepth_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -187,7 +190,7 @@ func (x *BookLevel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BookLevel.ProtoReflect.Descriptor instead.
 func (*BookLevel) Descriptor() ([]byte, []int) {
-	return file_proto_edgedepth_proto_rawDescGZIP(), []int{1}
+	return file_edgedepth_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *BookLevel) GetPrice() float64 {
@@ -217,7 +220,7 @@ type WSPayload struct {
 
 func (x *WSPayload) Reset() {
 	*x = WSPayload{}
-	mi := &file_proto_edgedepth_proto_msgTypes[2]
+	mi := &file_edgedepth_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -229,7 +232,7 @@ func (x *WSPayload) String() string {
 func (*WSPayload) ProtoMessage() {}
 
 func (x *WSPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_edgedepth_proto_msgTypes[2]
+	mi := &file_edgedepth_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -242,7 +245,7 @@ func (x *WSPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WSPayload.ProtoReflect.Descriptor instead.
 func (*WSPayload) Descriptor() ([]byte, []int) {
-	return file_proto_edgedepth_proto_rawDescGZIP(), []int{2}
+	return file_edgedepth_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *WSPayload) GetPair() *Pair {
@@ -292,7 +295,7 @@ type Trade struct {
 
 func (x *Trade) Reset() {
 	*x = Trade{}
-	mi := &file_proto_edgedepth_proto_msgTypes[3]
+	mi := &file_edgedepth_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -304,7 +307,7 @@ func (x *Trade) String() string {
 func (*Trade) ProtoMessage() {}
 
 func (x *Trade) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_edgedepth_proto_msgTypes[3]
+	mi := &file_edgedepth_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -317,7 +320,7 @@ func (x *Trade) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Trade.ProtoReflect.Descriptor instead.
 func (*Trade) Descriptor() ([]byte, []int) {
-	return file_proto_edgedepth_proto_rawDescGZIP(), []int{3}
+	return file_edgedepth_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *Trade) GetPrice() float64 {
@@ -368,7 +371,7 @@ type Candle struct {
 
 func (x *Candle) Reset() {
 	*x = Candle{}
-	mi := &file_proto_edgedepth_proto_msgTypes[4]
+	mi := &file_edgedepth_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -380,7 +383,7 @@ func (x *Candle) String() string {
 func (*Candle) ProtoMessage() {}
 
 func (x *Candle) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_edgedepth_proto_msgTypes[4]
+	mi := &file_edgedepth_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -393,7 +396,7 @@ func (x *Candle) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Candle.ProtoReflect.Descriptor instead.
 func (*Candle) Descriptor() ([]byte, []int) {
-	return file_proto_edgedepth_proto_rawDescGZIP(), []int{4}
+	return file_edgedepth_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *Candle) GetOpen() float64 {
@@ -490,7 +493,7 @@ type Candles struct {
 
 func (x *Candles) Reset() {
 	*x = Candles{}
-	mi := &file_proto_edgedepth_proto_msgTypes[5]
+	mi := &file_edgedepth_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -502,7 +505,7 @@ func (x *Candles) String() string {
 func (*Candles) ProtoMessage() {}
 
 func (x *Candles) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_edgedepth_proto_msgTypes[5]
+	mi := &file_edgedepth_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -515,7 +518,7 @@ func (x *Candles) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Candles.ProtoReflect.Descriptor instead.
 func (*Candles) Descriptor() ([]byte, []int) {
-	return file_proto_edgedepth_proto_rawDescGZIP(), []int{5}
+	return file_edgedepth_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *Candles) GetTimeframe() int64 {
@@ -559,7 +562,7 @@ type Stat struct {
 
 func (x *Stat) Reset() {
 	*x = Stat{}
-	mi := &file_proto_edgedepth_proto_msgTypes[6]
+	mi := &file_edgedepth_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -571,7 +574,7 @@ func (x *Stat) String() string {
 func (*Stat) ProtoMessage() {}
 
 func (x *Stat) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_edgedepth_proto_msgTypes[6]
+	mi := &file_edgedepth_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -584,7 +587,7 @@ func (x *Stat) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Stat.ProtoReflect.Descriptor instead.
 func (*Stat) Descriptor() ([]byte, []int) {
-	return file_proto_edgedepth_proto_rawDescGZIP(), []int{6}
+	return file_edgedepth_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *Stat) GetMarkPrice() float64 {
@@ -730,7 +733,7 @@ type Stats struct {
 
 func (x *Stats) Reset() {
 	*x = Stats{}
-	mi := &file_proto_edgedepth_proto_msgTypes[7]
+	mi := &file_edgedepth_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -742,7 +745,7 @@ func (x *Stats) String() string {
 func (*Stats) ProtoMessage() {}
 
 func (x *Stats) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_edgedepth_proto_msgTypes[7]
+	mi := &file_edgedepth_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -755,7 +758,7 @@ func (x *Stats) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Stats.ProtoReflect.Descriptor instead.
 func (*Stats) Descriptor() ([]byte, []int) {
-	return file_proto_edgedepth_proto_rawDescGZIP(), []int{7}
+	return file_edgedepth_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *Stats) GetTimeframe() int64 {
@@ -789,7 +792,7 @@ type Liquidation struct {
 
 func (x *Liquidation) Reset() {
 	*x = Liquidation{}
-	mi := &file_proto_edgedepth_proto_msgTypes[8]
+	mi := &file_edgedepth_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -801,7 +804,7 @@ func (x *Liquidation) String() string {
 func (*Liquidation) ProtoMessage() {}
 
 func (x *Liquidation) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_edgedepth_proto_msgTypes[8]
+	mi := &file_edgedepth_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -814,7 +817,7 @@ func (x *Liquidation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Liquidation.ProtoReflect.Descriptor instead.
 func (*Liquidation) Descriptor() ([]byte, []int) {
-	return file_proto_edgedepth_proto_rawDescGZIP(), []int{8}
+	return file_edgedepth_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *Liquidation) GetTimestampMs() int64 {
@@ -868,7 +871,7 @@ type BookUpdate struct {
 
 func (x *BookUpdate) Reset() {
 	*x = BookUpdate{}
-	mi := &file_proto_edgedepth_proto_msgTypes[9]
+	mi := &file_edgedepth_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -880,7 +883,7 @@ func (x *BookUpdate) String() string {
 func (*BookUpdate) ProtoMessage() {}
 
 func (x *BookUpdate) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_edgedepth_proto_msgTypes[9]
+	mi := &file_edgedepth_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -893,7 +896,7 @@ func (x *BookUpdate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BookUpdate.ProtoReflect.Descriptor instead.
 func (*BookUpdate) Descriptor() ([]byte, []int) {
-	return file_proto_edgedepth_proto_rawDescGZIP(), []int{9}
+	return file_edgedepth_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *BookUpdate) GetTimestampMs() int64 {
@@ -965,7 +968,7 @@ type TickVolumeLevel struct {
 
 func (x *TickVolumeLevel) Reset() {
 	*x = TickVolumeLevel{}
-	mi := &file_proto_edgedepth_proto_msgTypes[10]
+	mi := &file_edgedepth_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -977,7 +980,7 @@ func (x *TickVolumeLevel) String() string {
 func (*TickVolumeLevel) ProtoMessage() {}
 
 func (x *TickVolumeLevel) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_edgedepth_proto_msgTypes[10]
+	mi := &file_edgedepth_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -990,7 +993,7 @@ func (x *TickVolumeLevel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TickVolumeLevel.ProtoReflect.Descriptor instead.
 func (*TickVolumeLevel) Descriptor() ([]byte, []int) {
-	return file_proto_edgedepth_proto_rawDescGZIP(), []int{10}
+	return file_edgedepth_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *TickVolumeLevel) GetPrice() float64 {
@@ -1037,7 +1040,7 @@ type TickVolumeLevels struct {
 
 func (x *TickVolumeLevels) Reset() {
 	*x = TickVolumeLevels{}
-	mi := &file_proto_edgedepth_proto_msgTypes[11]
+	mi := &file_edgedepth_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1049,7 +1052,7 @@ func (x *TickVolumeLevels) String() string {
 func (*TickVolumeLevels) ProtoMessage() {}
 
 func (x *TickVolumeLevels) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_edgedepth_proto_msgTypes[11]
+	mi := &file_edgedepth_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1062,7 +1065,7 @@ func (x *TickVolumeLevels) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TickVolumeLevels.ProtoReflect.Descriptor instead.
 func (*TickVolumeLevels) Descriptor() ([]byte, []int) {
-	return file_proto_edgedepth_proto_rawDescGZIP(), []int{11}
+	return file_edgedepth_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *TickVolumeLevels) GetLevels() []*TickVolumeLevel {
@@ -1094,7 +1097,7 @@ type TickVolumeUpdate struct {
 
 func (x *TickVolumeUpdate) Reset() {
 	*x = TickVolumeUpdate{}
-	mi := &file_proto_edgedepth_proto_msgTypes[12]
+	mi := &file_edgedepth_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1106,7 +1109,7 @@ func (x *TickVolumeUpdate) String() string {
 func (*TickVolumeUpdate) ProtoMessage() {}
 
 func (x *TickVolumeUpdate) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_edgedepth_proto_msgTypes[12]
+	mi := &file_edgedepth_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1119,7 +1122,7 @@ func (x *TickVolumeUpdate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TickVolumeUpdate.ProtoReflect.Descriptor instead.
 func (*TickVolumeUpdate) Descriptor() ([]byte, []int) {
-	return file_proto_edgedepth_proto_rawDescGZIP(), []int{12}
+	return file_edgedepth_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *TickVolumeUpdate) GetTimestampMs() int64 {
@@ -1233,7 +1236,7 @@ type Ticker24HEntry struct {
 
 func (x *Ticker24HEntry) Reset() {
 	*x = Ticker24HEntry{}
-	mi := &file_proto_edgedepth_proto_msgTypes[13]
+	mi := &file_edgedepth_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1245,7 +1248,7 @@ func (x *Ticker24HEntry) String() string {
 func (*Ticker24HEntry) ProtoMessage() {}
 
 func (x *Ticker24HEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_edgedepth_proto_msgTypes[13]
+	mi := &file_edgedepth_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1258,7 +1261,7 @@ func (x *Ticker24HEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Ticker24HEntry.ProtoReflect.Descriptor instead.
 func (*Ticker24HEntry) Descriptor() ([]byte, []int) {
-	return file_proto_edgedepth_proto_rawDescGZIP(), []int{13}
+	return file_edgedepth_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *Ticker24HEntry) GetSymbol() string {
@@ -1306,7 +1309,7 @@ type Ticker24HUpdate struct {
 
 func (x *Ticker24HUpdate) Reset() {
 	*x = Ticker24HUpdate{}
-	mi := &file_proto_edgedepth_proto_msgTypes[14]
+	mi := &file_edgedepth_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1318,7 +1321,7 @@ func (x *Ticker24HUpdate) String() string {
 func (*Ticker24HUpdate) ProtoMessage() {}
 
 func (x *Ticker24HUpdate) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_edgedepth_proto_msgTypes[14]
+	mi := &file_edgedepth_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1331,7 +1334,7 @@ func (x *Ticker24HUpdate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Ticker24HUpdate.ProtoReflect.Descriptor instead.
 func (*Ticker24HUpdate) Descriptor() ([]byte, []int) {
-	return file_proto_edgedepth_proto_rawDescGZIP(), []int{14}
+	return file_edgedepth_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *Ticker24HUpdate) GetEntries() []*Ticker24HEntry {
@@ -1348,11 +1351,235 @@ func (x *Ticker24HUpdate) GetTimestampMs() int64 {
 	return 0
 }
 
-var File_proto_edgedepth_proto protoreflect.FileDescriptor
+type VolumeProfileLevel struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Price            float64                `protobuf:"fixed64,1,opt,name=price,proto3" json:"price,omitempty"`
+	BuyVolume        float64                `protobuf:"fixed64,2,opt,name=buy_volume,json=buyVolume,proto3" json:"buy_volume,omitempty"`
+	SellVolume       float64                `protobuf:"fixed64,3,opt,name=sell_volume,json=sellVolume,proto3" json:"sell_volume,omitempty"`
+	TotalVolume      float64                `protobuf:"fixed64,4,opt,name=total_volume,json=totalVolume,proto3" json:"total_volume,omitempty"`
+	TradeCount       int64                  `protobuf:"varint,5,opt,name=trade_count,json=tradeCount,proto3" json:"trade_count,omitempty"`
+	VolumePercentage float64                `protobuf:"fixed64,6,opt,name=volume_percentage,json=volumePercentage,proto3" json:"volume_percentage,omitempty"`
+	IsPoc            bool                   `protobuf:"varint,7,opt,name=is_poc,json=isPoc,proto3" json:"is_poc,omitempty"`
+	InValueArea      bool                   `protobuf:"varint,8,opt,name=in_value_area,json=inValueArea,proto3" json:"in_value_area,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
 
-const file_proto_edgedepth_proto_rawDesc = "" +
+func (x *VolumeProfileLevel) Reset() {
+	*x = VolumeProfileLevel{}
+	mi := &file_edgedepth_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *VolumeProfileLevel) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*VolumeProfileLevel) ProtoMessage() {}
+
+func (x *VolumeProfileLevel) ProtoReflect() protoreflect.Message {
+	mi := &file_edgedepth_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use VolumeProfileLevel.ProtoReflect.Descriptor instead.
+func (*VolumeProfileLevel) Descriptor() ([]byte, []int) {
+	return file_edgedepth_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *VolumeProfileLevel) GetPrice() float64 {
+	if x != nil {
+		return x.Price
+	}
+	return 0
+}
+
+func (x *VolumeProfileLevel) GetBuyVolume() float64 {
+	if x != nil {
+		return x.BuyVolume
+	}
+	return 0
+}
+
+func (x *VolumeProfileLevel) GetSellVolume() float64 {
+	if x != nil {
+		return x.SellVolume
+	}
+	return 0
+}
+
+func (x *VolumeProfileLevel) GetTotalVolume() float64 {
+	if x != nil {
+		return x.TotalVolume
+	}
+	return 0
+}
+
+func (x *VolumeProfileLevel) GetTradeCount() int64 {
+	if x != nil {
+		return x.TradeCount
+	}
+	return 0
+}
+
+func (x *VolumeProfileLevel) GetVolumePercentage() float64 {
+	if x != nil {
+		return x.VolumePercentage
+	}
+	return 0
+}
+
+func (x *VolumeProfileLevel) GetIsPoc() bool {
+	if x != nil {
+		return x.IsPoc
+	}
+	return false
+}
+
+func (x *VolumeProfileLevel) GetInValueArea() bool {
+	if x != nil {
+		return x.InValueArea
+	}
+	return false
+}
+
+type VolumeProfileResponse struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	StartTime       int64                  `protobuf:"varint,1,opt,name=start_time,json=startTime,proto3" json:"start_time,omitempty"`
+	EndTime         int64                  `protobuf:"varint,2,opt,name=end_time,json=endTime,proto3" json:"end_time,omitempty"`
+	Levels          []*VolumeProfileLevel  `protobuf:"bytes,3,rep,name=levels,proto3" json:"levels,omitempty"`
+	Poc             float64                `protobuf:"fixed64,4,opt,name=poc,proto3" json:"poc,omitempty"`
+	Vah             float64                `protobuf:"fixed64,5,opt,name=vah,proto3" json:"vah,omitempty"`
+	Val             float64                `protobuf:"fixed64,6,opt,name=val,proto3" json:"val,omitempty"`
+	TotalVolume     float64                `protobuf:"fixed64,7,opt,name=total_volume,json=totalVolume,proto3" json:"total_volume,omitempty"`
+	ValueAreaVolume float64                `protobuf:"fixed64,8,opt,name=value_area_volume,json=valueAreaVolume,proto3" json:"value_area_volume,omitempty"`
+	PocIndex        int32                  `protobuf:"varint,9,opt,name=poc_index,json=pocIndex,proto3" json:"poc_index,omitempty"`
+	VahIndex        int32                  `protobuf:"varint,10,opt,name=vah_index,json=vahIndex,proto3" json:"vah_index,omitempty"`
+	ValIndex        int32                  `protobuf:"varint,11,opt,name=val_index,json=valIndex,proto3" json:"val_index,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *VolumeProfileResponse) Reset() {
+	*x = VolumeProfileResponse{}
+	mi := &file_edgedepth_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *VolumeProfileResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*VolumeProfileResponse) ProtoMessage() {}
+
+func (x *VolumeProfileResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_edgedepth_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use VolumeProfileResponse.ProtoReflect.Descriptor instead.
+func (*VolumeProfileResponse) Descriptor() ([]byte, []int) {
+	return file_edgedepth_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *VolumeProfileResponse) GetStartTime() int64 {
+	if x != nil {
+		return x.StartTime
+	}
+	return 0
+}
+
+func (x *VolumeProfileResponse) GetEndTime() int64 {
+	if x != nil {
+		return x.EndTime
+	}
+	return 0
+}
+
+func (x *VolumeProfileResponse) GetLevels() []*VolumeProfileLevel {
+	if x != nil {
+		return x.Levels
+	}
+	return nil
+}
+
+func (x *VolumeProfileResponse) GetPoc() float64 {
+	if x != nil {
+		return x.Poc
+	}
+	return 0
+}
+
+func (x *VolumeProfileResponse) GetVah() float64 {
+	if x != nil {
+		return x.Vah
+	}
+	return 0
+}
+
+func (x *VolumeProfileResponse) GetVal() float64 {
+	if x != nil {
+		return x.Val
+	}
+	return 0
+}
+
+func (x *VolumeProfileResponse) GetTotalVolume() float64 {
+	if x != nil {
+		return x.TotalVolume
+	}
+	return 0
+}
+
+func (x *VolumeProfileResponse) GetValueAreaVolume() float64 {
+	if x != nil {
+		return x.ValueAreaVolume
+	}
+	return 0
+}
+
+func (x *VolumeProfileResponse) GetPocIndex() int32 {
+	if x != nil {
+		return x.PocIndex
+	}
+	return 0
+}
+
+func (x *VolumeProfileResponse) GetVahIndex() int32 {
+	if x != nil {
+		return x.VahIndex
+	}
+	return 0
+}
+
+func (x *VolumeProfileResponse) GetValIndex() int32 {
+	if x != nil {
+		return x.ValIndex
+	}
+	return 0
+}
+
+var File_edgedepth_proto protoreflect.FileDescriptor
+
+const file_edgedepth_proto_rawDesc = "" +
 	"\n" +
-	"\x15proto/edgedepth.proto\x12\x02pb\":\n" +
+	"\x0fedgedepth.proto\x12\x02pb\":\n" +
 	"\x04Pair\x12\x1a\n" +
 	"\bexchange\x18\x01 \x01(\tR\bexchange\x12\x16\n" +
 	"\x06symbol\x18\x02 \x01(\tR\x06symbol\"5\n" +
@@ -1476,7 +1703,33 @@ const file_proto_edgedepth_proto_rawDesc = "" +
 	"\revent_time_ms\x18\x05 \x01(\x03R\veventTimeMs\"b\n" +
 	"\x0fTicker24hUpdate\x12,\n" +
 	"\aentries\x18\x01 \x03(\v2\x12.pb.Ticker24hEntryR\aentries\x12!\n" +
-	"\ftimestamp_ms\x18\x02 \x01(\x03R\vtimestampMs*\xd1\x01\n" +
+	"\ftimestamp_ms\x18\x02 \x01(\x03R\vtimestampMs\"\x96\x02\n" +
+	"\x12VolumeProfileLevel\x12\x14\n" +
+	"\x05price\x18\x01 \x01(\x01R\x05price\x12\x1d\n" +
+	"\n" +
+	"buy_volume\x18\x02 \x01(\x01R\tbuyVolume\x12\x1f\n" +
+	"\vsell_volume\x18\x03 \x01(\x01R\n" +
+	"sellVolume\x12!\n" +
+	"\ftotal_volume\x18\x04 \x01(\x01R\vtotalVolume\x12\x1f\n" +
+	"\vtrade_count\x18\x05 \x01(\x03R\n" +
+	"tradeCount\x12+\n" +
+	"\x11volume_percentage\x18\x06 \x01(\x01R\x10volumePercentage\x12\x15\n" +
+	"\x06is_poc\x18\a \x01(\bR\x05isPoc\x12\"\n" +
+	"\rin_value_area\x18\b \x01(\bR\vinValueArea\"\xdd\x02\n" +
+	"\x15VolumeProfileResponse\x12\x1d\n" +
+	"\n" +
+	"start_time\x18\x01 \x01(\x03R\tstartTime\x12\x19\n" +
+	"\bend_time\x18\x02 \x01(\x03R\aendTime\x12.\n" +
+	"\x06levels\x18\x03 \x03(\v2\x16.pb.VolumeProfileLevelR\x06levels\x12\x10\n" +
+	"\x03poc\x18\x04 \x01(\x01R\x03poc\x12\x10\n" +
+	"\x03vah\x18\x05 \x01(\x01R\x03vah\x12\x10\n" +
+	"\x03val\x18\x06 \x01(\x01R\x03val\x12!\n" +
+	"\ftotal_volume\x18\a \x01(\x01R\vtotalVolume\x12*\n" +
+	"\x11value_area_volume\x18\b \x01(\x01R\x0fvalueAreaVolume\x12\x1b\n" +
+	"\tpoc_index\x18\t \x01(\x05R\bpocIndex\x12\x1b\n" +
+	"\tvah_index\x18\n" +
+	" \x01(\x05R\bvahIndex\x12\x1b\n" +
+	"\tval_index\x18\v \x01(\x05R\bvalIndex*\xec\x01\n" +
 	"\x06Stream\x12\x12\n" +
 	"\x0eSTREAM_UNKNOWN\x10\x00\x12\x11\n" +
 	"\rSTREAM_TRADES\x10\x01\x12\x12\n" +
@@ -1485,42 +1738,45 @@ const file_proto_edgedepth_proto_rawDesc = "" +
 	"\fSTREAM_STATS\x10\x04\x12\x17\n" +
 	"\x13STREAM_LIQUIDATIONS\x10\x05\x12\x1d\n" +
 	"\x19STREAM_HISTORICAL_CANDLES\x10\b\x12\x16\n" +
-	"\x12STREAM_TICK_VOLUME\x10\x11\x12\x14\n" +
+	"\x12STREAM_TICK_VOLUME\x10\x11\x12\x19\n" +
+	"\x15STREAM_VOLUME_PROFILE\x10\x1a\x12\x14\n" +
 	"\x10STREAM_TICKER24H\x10\x1dB1Z/github.com/edgedepthhq/edgedepth-gateway/pkg/pbb\x06proto3"
 
 var (
-	file_proto_edgedepth_proto_rawDescOnce sync.Once
-	file_proto_edgedepth_proto_rawDescData []byte
+	file_edgedepth_proto_rawDescOnce sync.Once
+	file_edgedepth_proto_rawDescData []byte
 )
 
-func file_proto_edgedepth_proto_rawDescGZIP() []byte {
-	file_proto_edgedepth_proto_rawDescOnce.Do(func() {
-		file_proto_edgedepth_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_proto_edgedepth_proto_rawDesc), len(file_proto_edgedepth_proto_rawDesc)))
+func file_edgedepth_proto_rawDescGZIP() []byte {
+	file_edgedepth_proto_rawDescOnce.Do(func() {
+		file_edgedepth_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_edgedepth_proto_rawDesc), len(file_edgedepth_proto_rawDesc)))
 	})
-	return file_proto_edgedepth_proto_rawDescData
+	return file_edgedepth_proto_rawDescData
 }
 
-var file_proto_edgedepth_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_proto_edgedepth_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
-var file_proto_edgedepth_proto_goTypes = []any{
-	(Stream)(0),              // 0: pb.Stream
-	(*Pair)(nil),             // 1: pb.Pair
-	(*BookLevel)(nil),        // 2: pb.BookLevel
-	(*WSPayload)(nil),        // 3: pb.WSPayload
-	(*Trade)(nil),            // 4: pb.Trade
-	(*Candle)(nil),           // 5: pb.Candle
-	(*Candles)(nil),          // 6: pb.Candles
-	(*Stat)(nil),             // 7: pb.Stat
-	(*Stats)(nil),            // 8: pb.Stats
-	(*Liquidation)(nil),      // 9: pb.Liquidation
-	(*BookUpdate)(nil),       // 10: pb.BookUpdate
-	(*TickVolumeLevel)(nil),  // 11: pb.TickVolumeLevel
-	(*TickVolumeLevels)(nil), // 12: pb.TickVolumeLevels
-	(*TickVolumeUpdate)(nil), // 13: pb.TickVolumeUpdate
-	(*Ticker24HEntry)(nil),   // 14: pb.Ticker24hEntry
-	(*Ticker24HUpdate)(nil),  // 15: pb.Ticker24hUpdate
+var file_edgedepth_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_edgedepth_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
+var file_edgedepth_proto_goTypes = []any{
+	(Stream)(0),                   // 0: pb.Stream
+	(*Pair)(nil),                  // 1: pb.Pair
+	(*BookLevel)(nil),             // 2: pb.BookLevel
+	(*WSPayload)(nil),             // 3: pb.WSPayload
+	(*Trade)(nil),                 // 4: pb.Trade
+	(*Candle)(nil),                // 5: pb.Candle
+	(*Candles)(nil),               // 6: pb.Candles
+	(*Stat)(nil),                  // 7: pb.Stat
+	(*Stats)(nil),                 // 8: pb.Stats
+	(*Liquidation)(nil),           // 9: pb.Liquidation
+	(*BookUpdate)(nil),            // 10: pb.BookUpdate
+	(*TickVolumeLevel)(nil),       // 11: pb.TickVolumeLevel
+	(*TickVolumeLevels)(nil),      // 12: pb.TickVolumeLevels
+	(*TickVolumeUpdate)(nil),      // 13: pb.TickVolumeUpdate
+	(*Ticker24HEntry)(nil),        // 14: pb.Ticker24hEntry
+	(*Ticker24HUpdate)(nil),       // 15: pb.Ticker24hUpdate
+	(*VolumeProfileLevel)(nil),    // 16: pb.VolumeProfileLevel
+	(*VolumeProfileResponse)(nil), // 17: pb.VolumeProfileResponse
 }
-var file_proto_edgedepth_proto_depIdxs = []int32{
+var file_edgedepth_proto_depIdxs = []int32{
 	1,  // 0: pb.WSPayload.pair:type_name -> pb.Pair
 	0,  // 1: pb.WSPayload.stream:type_name -> pb.Stream
 	5,  // 2: pb.Candles.values:type_name -> pb.Candle
@@ -1529,34 +1785,35 @@ var file_proto_edgedepth_proto_depIdxs = []int32{
 	2,  // 5: pb.BookUpdate.bids:type_name -> pb.BookLevel
 	11, // 6: pb.TickVolumeLevels.levels:type_name -> pb.TickVolumeLevel
 	14, // 7: pb.Ticker24hUpdate.entries:type_name -> pb.Ticker24hEntry
-	8,  // [8:8] is the sub-list for method output_type
-	8,  // [8:8] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	16, // 8: pb.VolumeProfileResponse.levels:type_name -> pb.VolumeProfileLevel
+	9,  // [9:9] is the sub-list for method output_type
+	9,  // [9:9] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
-func init() { file_proto_edgedepth_proto_init() }
-func file_proto_edgedepth_proto_init() {
-	if File_proto_edgedepth_proto != nil {
+func init() { file_edgedepth_proto_init() }
+func file_edgedepth_proto_init() {
+	if File_edgedepth_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_edgedepth_proto_rawDesc), len(file_proto_edgedepth_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_edgedepth_proto_rawDesc), len(file_edgedepth_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   15,
+			NumMessages:   17,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_proto_edgedepth_proto_goTypes,
-		DependencyIndexes: file_proto_edgedepth_proto_depIdxs,
-		EnumInfos:         file_proto_edgedepth_proto_enumTypes,
-		MessageInfos:      file_proto_edgedepth_proto_msgTypes,
+		GoTypes:           file_edgedepth_proto_goTypes,
+		DependencyIndexes: file_edgedepth_proto_depIdxs,
+		EnumInfos:         file_edgedepth_proto_enumTypes,
+		MessageInfos:      file_edgedepth_proto_msgTypes,
 	}.Build()
-	File_proto_edgedepth_proto = out.File
-	file_proto_edgedepth_proto_goTypes = nil
-	file_proto_edgedepth_proto_depIdxs = nil
+	File_edgedepth_proto = out.File
+	file_edgedepth_proto_goTypes = nil
+	file_edgedepth_proto_depIdxs = nil
 }

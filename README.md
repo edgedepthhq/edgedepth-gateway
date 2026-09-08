@@ -52,12 +52,52 @@ Everything here is computed from Binance's free public data. No key, no tier.
 | Historical backfill (1m and above) | yes | Binance REST klines |
 | VPIN, positioning, modelled liq heatmap | no | hosted backend only |
 | Patterns, scanner scores, contagion | no | hosted backend only |
-| VPVR, footprint history, volume profile history | no | needs recorded per-price volume, which this gateway does not keep |
+| VPVR / footprint history | bounded | local candidate: closed observed minutes after warmup, up to 60 minutes / 50,000 price-minute cells per active symbol |
+| TPO | candle approximation | terminal builds 30m blocks from available candle ranges |
 
 Sub-minute candles are accumulated from individual trades as they arrive. The
 building candle therefore moves trade by trade instead of waiting for a closed
 bar. The terminal renders them because its entitlements default to Pro when no
 host globals are present.
+
+## Observed volume history (local candidate)
+
+These changes are not yet published in release images. Build this checkout to
+try them. A fresh subscription has no stored trade history: aggregation starts
+at the next minute boundary, and the first trade in a later minute closes it.
+Expect roughly one to two minutes of warmup on an active market, longer on a
+quiet one. No trades is not proof of a complete empty minute.
+
+A reconnect, aggregate-ID gap, or regressing event time discards the current
+partial minute. Older closed buckets remain until evicted. History retains at
+most 60 minutes and 50,000 price-minute cells per active symbol. At most 16
+symbols can be active; the last unsubscribe releases that symbol and its
+history. A process restart loses all volume history. There is no REST trade
+backfill, persistent storage, or guarantee of complete venue-wide volume.
+
+When a minute alone exceeds the cell budget, it is discarded. Missing minutes
+remain gaps. Requests select whole minutes inside `[start_time, end_time)` and
+not after now. Profile bounds report the first/last included minute; they do
+not certify continuity between them. POC ties choose the lower price; value
+area expands adjacent rows around POC to at least 70% of available volume.
+
+Quantities are base-asset units for the USD-M symbols this adapter supports.
+Buyer-is-maker means aggressor sell; missing maker flags are rejected. CM
+messages (`st=2`) are excluded from the trade path. Counts are received aggregate
+messages (or raw trade messages), not an estimate of distinct taker orders.
+Duplicate IDs do not add volume twice.
+
+`get_footprint_history` emits stream-17 `TickVolumeUpdate` messages with raw
+nested `TickVolumeLevels` protobuf, then an empty stream-17 sentinel even when
+cold. `get_volume_profile` emits stream-26 `VolumeProfileResponse`, empty when
+unavailable. The terminal accepts this existing format without a new protocol.
+Only subscribed feeds that implement `exchange.TradeContinuity` produce stored
+volume history; new adapters must report resets before accepting a new sequence.
+
+The client queue is capped at 1,024 frames **and 16 MiB** including an in-flight
+write. A slow client disconnects instead of silently losing order-book deltas.
+Control frames are capped at 64 KiB. These are local-workbench bounds, not a
+public multi-tenant service capacity guarantee.
 
 ## Configuration
 
@@ -72,10 +112,13 @@ Every flag has an environment variable equivalent.
 | `-binance-rest` | `BINANCE_REST` | Binance | override REST base URL |
 | `-binance-ws` | `BINANCE_WS` | Binance | override stream base URL |
 
-**If the tape stays empty while the orderbook updates**, start with
-`-trade-stream=trade`. Some networks do not serve Binance's `@aggTrade`
-stream. The gateway logs a warning naming this exact fix when it sees a live
-orderbook and no trades after 30 seconds.
+**Current Binance routing:** trades, mark price, liquidation and ticker streams
+use `/market/stream`; depth uses a separate `/public/stream` connection. The
+base override is the host root (for example `wss://fstream.binance.com`), without
+a route suffix. Legacy combined endpoints can leave the book moving while the
+tape is empty. Check the image revision and logs before trying an override.
+The default `aggTrade` route was tested live for this candidate. `trade` remains
+an experimental compatibility option, not a promise of availability.
 
 The all-market `!ticker@arr` stream is blocked on some of the same networks,
 which would leave every watchlist row showing a symbol and no numbers. That
@@ -100,7 +143,8 @@ sends plain protobuf.
 ```
 
 Streams served: 1 trades, 2 candles, 3 orderbook, 4 stats, 5 liquidations,
-8 historical candles, 29 ticker24h. `get_historical_candles` is answered from
+8 historical candles, 17 closed tick-volume history, 26 volume profile, and
+29 ticker24h. `get_historical_candles` is answered from
 Binance REST. Requests the hosted backend owns are ignored, and the terminal
 renders without them.
 
@@ -118,7 +162,8 @@ line. [CONTRIBUTING.md](CONTRIBUTING.md) has the walkthrough.
 
 ```bash
 go build ./...
-go test ./...
+go test -race ./...
+go vet ./...
 
 # Live probe against real Binance: subscribes the way the terminal does and
 # asserts the decoded frames carry sane values.

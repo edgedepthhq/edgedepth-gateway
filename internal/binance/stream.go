@@ -30,6 +30,7 @@ type Envelope struct {
 // every connection at the 24 hour mark, treats a clean close as routine.
 type Stream struct {
 	names   []string
+	route   string
 	onMsg   func(Envelope)
 	onReset func() // called after every (re)connect so callers can resync state
 
@@ -41,7 +42,11 @@ type Stream struct {
 // reconnects: any state derived from a continuous sequence (an orderbook, for
 // one) must be rebuilt there.
 func NewStream(names []string, log *slog.Logger, onMsg func(Envelope), onReset func()) *Stream {
-	return &Stream{names: names, onMsg: onMsg, onReset: onReset, log: log}
+	route := "/market"
+	if len(names) > 0 && (strings.Contains(names[0], "@depth") || strings.Contains(names[0], "bookTicker")) {
+		route = "/public"
+	}
+	return &Stream{names: names, route: route, onMsg: onMsg, onReset: onReset, log: log}
 }
 
 // Run blocks until ctx is cancelled, keeping the connection alive throughout.
@@ -81,7 +86,7 @@ func (s *Stream) dial(ctx context.Context) error {
 	// them and unescaping afterwards is how "!ticker@arr" silently became
 	// "%21ticker@arr" and returned a connection that never delivered a frame.
 	// Join them verbatim instead.
-	u := WSBase + "/stream?streams=" + strings.Join(s.names, "/")
+	u := WSBase + s.route + "/stream?streams=" + strings.Join(s.names, "/")
 
 	dialCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
@@ -91,6 +96,8 @@ func (s *Stream) dial(ctx context.Context) error {
 		return err
 	}
 	defer conn.Close()
+	done := make(chan struct{})
+	defer close(done)
 
 	s.log.Info("binance stream connected", "streams", len(s.names))
 	if s.onReset != nil {
@@ -108,8 +115,11 @@ func (s *Stream) dial(ctx context.Context) error {
 	})
 
 	go func() {
-		<-ctx.Done()
-		_ = conn.Close()
+		select {
+		case <-ctx.Done():
+			_ = conn.Close()
+		case <-done:
+		}
 	}()
 
 	for {

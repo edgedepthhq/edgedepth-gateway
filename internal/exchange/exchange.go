@@ -83,3 +83,8 @@ type Exchange interface {
 	// aggregation fills those from the first trade onward.
 	HistoricalCandles(ctx context.Context, symbol string, tfSec int64, count int, endTimeMs int64) ([]*pb.Candle, error)
 }
+
+// TradeContinuity is implemented by feeds that report trade-stream resets.
+// Set the callback before Run. Invoke it before receiving a new sequence or
+// accepting a trade after a detected gap. The timestamp is receipt time in ms.
+type TradeContinuity interface{ SetTradeReset(func(int64)) }

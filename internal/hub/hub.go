@@ -11,6 +11,7 @@ import (
 
 	"github.com/edgedepthhq/edgedepth-gateway/internal/candle"
 	"github.com/edgedepthhq/edgedepth-gateway/internal/exchange"
+	"github.com/edgedepthhq/edgedepth-gateway/internal/volume"
 	"github.com/edgedepthhq/edgedepth-gateway/internal/wire"
 	"github.com/edgedepthhq/edgedepth-gateway/pkg/pb"
 )
@@ -63,6 +64,7 @@ type symbolFeed struct {
 	series map[int64]*candle.Series
 	cancel context.CancelFunc
 	refs   int
+	volume *volume.History
 }
 
 // New creates a hub serving the given venues.
@@ -172,7 +174,10 @@ func (h *Hub) Subscribe(c *Client, k wire.Key) {
 		return // already subscribed; do not double-count the feed reference
 	}
 	fk := feedKey{k.Exchange, k.Symbol}
-	h.acquire(ex, fk)
+	if !h.acquire(ex, fk) {
+		c.removeKey(k)
+		return
+	}
 
 	// Prime the new subscriber so it is not left waiting for the next event.
 	h.mu.RLock()
@@ -264,15 +269,19 @@ func (h *Hub) releaseTicker(id string) {
 }
 
 // acquire starts (or reference-counts) the upstream feed for an instrument.
-func (h *Hub) acquire(ex exchange.Exchange, fk feedKey) {
+func (h *Hub) acquire(ex exchange.Exchange, fk feedKey) bool {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
 	if sf, ok := h.feeds[fk]; ok {
 		sf.refs++
-		return
+		return true
 	}
 
+	if len(h.feeds) >= 16 {
+		h.log.Warn("active symbol limit reached", "limit", 16)
+		return false
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	sf := &symbolFeed{
 		series: make(map[int64]*candle.Series, len(candleTimeframes)),
@@ -286,6 +295,11 @@ func (h *Hub) acquire(ex exchange.Exchange, fk feedKey) {
 		// Trades and liquidations also drive the aggregators.
 		switch m := inner.(type) {
 		case *pb.Trade:
+			if sf.volume != nil {
+				if closed := sf.volume.Add(m); closed != nil {
+					h.broadcast(fk.Exchange, fk.Symbol, pb.Stream_STREAM_TICK_VOLUME, volume.Minute, closed.EndTime, closed)
+				}
+			}
 			for _, s := range sf.series {
 				if closed, closedStat := s.AddTrade(candle.Trade{
 					Price: m.Price, Qty: m.Qty, IsBuy: m.IsBuy, Timestamp: m.TimestampMs,
@@ -302,6 +316,10 @@ func (h *Hub) acquire(ex exchange.Exchange, fk feedKey) {
 		}
 	})
 
+	if continuous, ok := sf.feed.(exchange.TradeContinuity); ok {
+		sf.volume = volume.New(time.Now().UnixMilli())
+		continuous.SetTradeReset(sf.volume.Reset)
+	}
 	for _, tf := range candleTimeframes {
 		sf.series[tf] = candle.NewSeries(tf, sf.feed.MarkState)
 	}
@@ -311,6 +329,7 @@ func (h *Hub) acquire(ex exchange.Exchange, fk feedKey) {
 
 	go sf.feed.Run(ctx)
 	go h.flushLoop(ctx, fk, sf)
+	return true
 }
 
 // release drops a reference and shuts the feed down when the last one goes.
@@ -480,4 +499,33 @@ func (h *Hub) HistoricalCandles(ctx context.Context, c *Client, exID, symbol str
 func cloneLast(vals []*pb.Candle) *pb.Candle {
 	last := vals[len(vals)-1]
 	return proto.Clone(last).(*pb.Candle)
+}
+
+// VolumeHistory serves only a currently subscribed feed's bounded observations.
+// The sentinel terminates every footprint request, including cold/empty ranges.
+func (h *Hub) VolumeHistory(c *Client, req *request) {
+	fk := feedKey{req.Data.Pair.Exchange, req.Data.Pair.Symbol}
+	now := time.Now().UnixMilli()
+	end := req.Data.EndTime
+	if end == 0 {
+		end = now
+	}
+	start := max(req.Data.StartTime, now-volume.Retention)
+	h.mu.RLock()
+	sf := h.feeds[fk]
+	h.mu.RUnlock()
+	var minutes []*pb.TickVolumeUpdate
+	if sf != nil && sf.volume != nil {
+		minutes = sf.volume.Range(start, end, now)
+	}
+	key := wire.Key{Exchange: fk.Exchange, Symbol: fk.Symbol, Stream: pb.Stream_STREAM_TICK_VOLUME}
+	if req.Method == "get_footprint_history" {
+		for _, u := range minutes {
+			h.sendTo(c, key, volume.Minute, u.EndTime, u)
+		}
+		h.sendTo(c, key, 0, 0, &pb.TickVolumeUpdate{})
+	} else {
+		key.Stream = pb.Stream_STREAM_VOLUME_PROFILE
+		h.sendTo(c, key, 0, min(end, now), volume.Profile(minutes, req.Data.TickPerRow))
+	}
 }

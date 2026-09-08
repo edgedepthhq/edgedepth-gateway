@@ -35,6 +35,7 @@ enum Stream {
     STREAM_LIQUIDATIONS = 5;
     STREAM_HISTORICAL_CANDLES = 8;
     STREAM_TICK_VOLUME = 17;
+    STREAM_VOLUME_PROFILE = 26;
     STREAM_TICKER24H = 29;
 }
 
@@ -164,4 +165,29 @@ message Ticker24hEntry {
 message Ticker24hUpdate {
     repeated Ticker24hEntry entries = 1;
     int64 timestamp_ms = 2;
+}
+
+message VolumeProfileLevel {
+    double price = 1;
+    double buy_volume = 2;
+    double sell_volume = 3;
+    double total_volume = 4;
+    int64  trade_count = 5;
+    double volume_percentage = 6;
+    bool   is_poc = 7;
+    bool   in_value_area = 8;
+}
+
+message VolumeProfileResponse {
+    int64  start_time = 1;
+    int64  end_time = 2;
+    repeated VolumeProfileLevel levels = 3;
+    double poc = 4;
+    double vah = 5;
+    double val = 6;
+    double total_volume = 7;
+    double value_area_volume = 8;
+    int32  poc_index = 9;
+    int32  vah_index = 10;
+    int32  val_index = 11;
 }

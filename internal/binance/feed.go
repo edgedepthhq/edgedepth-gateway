@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"math"
 	"sort"
 	"strconv"
 	"sync"
@@ -25,18 +26,25 @@ type Emit = exchange.Emit
 // diffs mean anything. Forwarding only diffs leaves a late joiner with an
 // orderbook that never fills.
 type Feed struct {
-	Symbol string // lowercase, e.g. "btcusdt"
+	bookEmitMu sync.Mutex // serialize book state changes with snapshot/diff emission
+	runCtx     context.Context
+	depthEpoch uint64
+	nextResync time.Time
+	Symbol     string // lowercase, e.g. "btcusdt"
 
 	emit Emit
 	log  *slog.Logger
 
-	mu         sync.RWMutex
-	bids       map[float64]float64
-	asks       map[float64]float64
-	lastU      int64 // last applied update id
-	synced     bool
-	lastTrade  float64
-	tradeCount int64
+	mu            sync.RWMutex
+	bids          map[float64]float64
+	asks          map[float64]float64
+	lastU         int64 // last applied update id
+	synced        bool
+	lastTrade     float64
+	tradeCount    int64
+	lastTradeID   int64
+	lastTradeTime int64
+	tradeReset    func(int64)
 
 	// awaitFirst is true between a REST snapshot and the first stream diff
 	// applied on top of it. The snapshot's lastUpdateId is not a stream "u"
@@ -87,14 +95,15 @@ type depthDiff struct {
 // still plausible-looking, so it survives naive validation and lands every
 // trade at the wrong point in time.
 type aggTrade struct {
-	EventType string `json:"e"`
-	EventTime int64  `json:"E"`
-	Price     string `json:"p"`
-	Qty       string `json:"q"`
-	TradeTime int64  `json:"T"`
-	TradeID   int64  `json:"t"`
-	AggID     int64  `json:"a"`
-	Maker     bool   `json:"m"`
+	SymbolType int    `json:"st"`
+	EventType  string `json:"e"`
+	EventTime  int64  `json:"E"`
+	Price      string `json:"p"`
+	Qty        string `json:"q"`
+	TradeTime  int64  `json:"T"`
+	TradeID    int64  `json:"t"`
+	AggID      int64  `json:"a"`
+	Maker      *bool  `json:"m"`
 }
 
 type markPrice struct {
@@ -138,29 +147,40 @@ func NewFeed(symbol string, log *slog.Logger, emit Emit) *Feed {
 // and a tape that silently never ticks is a miserable thing to debug.
 var TradeStream = "aggTrade"
 
+func (f *Feed) SetTradeReset(reset func(int64)) { f.tradeReset = reset }
+
 // Run connects the upstream streams and blocks until ctx is cancelled.
 func (f *Feed) Run(ctx context.Context) {
+	f.runCtx = ctx
 	s := f.Symbol
-	names := []string{
-		s + "@" + TradeStream,
-		s + "@depth@100ms",
-		s + "@markPrice@1s",
-		s + "@forceOrder",
-	}
-
-	stream := NewStream(names, f.log, f.onMessage, func() {
-		// Every reconnect invalidates the book: the diff sequence restarts and
-		// we have no idea what we missed while disconnected.
+	market := NewStream([]string{s + "@" + TradeStream, s + "@markPrice@1s", s + "@forceOrder"}, f.log, f.onMessage, func() {
 		f.mu.Lock()
+		f.lastTradeID = 0
+		f.lastTradeTime = 0
+		f.mu.Unlock()
+		if f.tradeReset != nil {
+			f.tradeReset(time.Now().UnixMilli())
+		}
+	})
+	depth := NewStream([]string{s + "@depth@100ms"}, f.log, f.onMessage, func() {
+		f.bookEmitMu.Lock()
+		f.mu.Lock()
+		f.depthEpoch++
 		f.synced = false
 		f.pending = nil
+		f.resyncing = false
+		f.nextResync = time.Time{}
 		f.mu.Unlock()
-		go f.resync(ctx)
+		f.bookEmitMu.Unlock()
+		f.triggerResync("depth connection reset", 0, 0)
 	})
-
+	var streams sync.WaitGroup
+	streams.Add(1)
+	go func() { defer streams.Done(); depth.Run(ctx) }()
 	go f.pollREST(ctx)
 	go f.warnIfNoTrades(ctx)
-	stream.Run(ctx)
+	market.Run(ctx)
+	streams.Wait()
 }
 
 func (f *Feed) onMessage(env Envelope) {
@@ -194,10 +214,28 @@ func (f *Feed) onAggTrade(raw json.RawMessage) {
 	// ships that window to every chart, where autoscale stretches the y-axis
 	// to zero. @aggTrade never delivers these, so the hosted backend has
 	// never needed this guard.
-	if price <= 0 || qty <= 0 {
+	if price <= 0 || qty <= 0 || math.IsNaN(price) || math.IsNaN(qty) ||
+		math.IsInf(price, 0) || math.IsInf(qty, 0) || t.TradeTime <= 0 || t.Maker == nil || t.SymbolType == 2 {
 		return
 	}
 
+	id := t.AggID
+	if t.EventType == "trade" {
+		id = t.TradeID
+	}
+	f.mu.Lock()
+	if id > 0 && f.lastTradeID > 0 && id <= f.lastTradeID {
+		f.mu.Unlock()
+		return
+	}
+	gap := (id > 0 && f.lastTradeID > 0 && id != f.lastTradeID+1) || t.TradeTime < f.lastTradeTime
+	f.lastTradeID = id
+	f.lastTradeTime = t.TradeTime
+	f.mu.Unlock()
+	if gap && f.tradeReset != nil {
+		f.tradeReset(time.Now().UnixMilli())
+		f.log.Warn("trade sequence gap; discarding partial volume minute")
+	}
 	f.mu.Lock()
 	f.lastTrade = price
 	f.tradeCount++
@@ -209,7 +247,7 @@ func (f *Feed) onAggTrade(raw json.RawMessage) {
 	f.emit(pb.Stream_STREAM_TRADES, 0, t.TradeTime, &pb.Trade{
 		Price:       price,
 		Qty:         qty,
-		IsBuy:       !t.Maker,
+		IsBuy:       !*t.Maker,
 		TimestampMs: t.TradeTime,
 	})
 }
@@ -338,6 +376,8 @@ func (f *Feed) warnIfNoTrades(ctx context.Context) {
 // ── orderbook ───────────────────────────────────────────────────────────────
 
 func (f *Feed) onDepth(raw json.RawMessage) {
+	f.bookEmitMu.Lock()
+	defer f.bookEmitMu.Unlock()
 	var d depthDiff
 	if err := json.Unmarshal(raw, &d); err != nil {
 		// Never swallow this. A silent return here is how a wire-shape
@@ -352,10 +392,18 @@ func (f *Feed) onDepth(raw json.RawMessage) {
 		if len(f.pending) < 5000 {
 			f.pending = append(f.pending, d)
 		}
+		retry := !f.resyncing && !time.Now().Before(f.nextResync)
 		f.mu.Unlock()
+		if retry {
+			f.triggerResync("unsynced depth", 0, 0)
+		}
 		return
 	}
 
+	if !f.awaitFirst && d.FinalID <= f.lastU {
+		f.mu.Unlock()
+		return
+	}
 	// Binance's documented futures procedure, in order:
 	//   - drop any event whose u is below the snapshot id (already included)
 	//   - the FIRST event applied must satisfy U <= lastUpdateId <= u
@@ -368,7 +416,7 @@ func (f *Feed) onDepth(raw json.RawMessage) {
 			f.mu.Unlock() // entirely before the snapshot
 			return
 		}
-		if d.FirstID > f.lastU+1 {
+		if d.FirstID > f.lastU {
 			f.mu.Unlock()
 			f.triggerResync("snapshot older than first diff", f.lastU, d.FirstID)
 			return
@@ -402,29 +450,36 @@ func (f *Feed) onDepth(raw json.RawMessage) {
 // REST endpoint.
 func (f *Feed) triggerResync(reason string, want, got int64) {
 	f.mu.Lock()
-	if f.resyncing {
+	if f.resyncing || time.Now().Before(f.nextResync) {
+		f.mu.Unlock()
+		return
+	}
+	ctx := f.runCtx
+	if ctx == nil || ctx.Err() != nil {
 		f.mu.Unlock()
 		return
 	}
 	f.resyncing = true
 	f.synced = false
-	f.pending = nil
+	f.nextResync = time.Now().Add(time.Second)
+	epoch := f.depthEpoch
 	f.mu.Unlock()
-
 	f.log.Warn("orderbook resync", "reason", reason, "expected", want, "got", got)
-	go f.resync(context.Background())
+	go f.resync(ctx, epoch)
 }
 
 // resync pulls a REST snapshot and replays buffered diffs on top, following
 // Binance's documented futures procedure.
-func (f *Feed) resync(ctx context.Context) {
+func (f *Feed) resync(ctx context.Context, epoch uint64) {
 	defer func() {
 		f.mu.Lock()
-		f.resyncing = false
+		if f.depthEpoch == epoch {
+			f.resyncing = false
+		}
 		f.mu.Unlock()
 	}()
-	if ctx == nil || ctx.Err() != nil {
-		ctx = context.Background()
+	if ctx.Err() != nil {
+		return
 	}
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
@@ -435,7 +490,13 @@ func (f *Feed) resync(ctx context.Context) {
 		return
 	}
 
+	f.bookEmitMu.Lock()
+	defer f.bookEmitMu.Unlock()
 	f.mu.Lock()
+	if ctx.Err() != nil || f.depthEpoch != epoch {
+		f.mu.Unlock()
+		return
+	}
 	f.bids = make(map[float64]float64, len(snap.Bids))
 	f.asks = make(map[float64]float64, len(snap.Asks))
 	for _, b := range snap.Bids {
@@ -453,12 +514,21 @@ func (f *Feed) resync(ctx context.Context) {
 		if d.FinalID < snap.LastUpdateID {
 			continue // entirely before the snapshot
 		}
-		if applied == 0 && d.FirstID > snap.LastUpdateID+1 {
+		if applied == 0 && d.FirstID > snap.LastUpdateID {
 			// A gap between the snapshot and our earliest buffered diff. The
 			// snapshot is already too old; give up and let the next diff
 			// trigger another resync.
 			f.log.Warn("snapshot too old for buffered diffs, retrying",
 				"snapshot_id", snap.LastUpdateID, "first_buffered_U", d.FirstID)
+			f.pending = nil
+			f.mu.Unlock()
+			return
+		}
+		if applied > 0 && d.FinalID <= f.lastU {
+			continue
+		}
+		if applied > 0 && d.PrevID != f.lastU {
+			f.log.Warn("buffered depth sequence gap; retrying", "expected", f.lastU, "got", d.PrevID)
 			f.pending = nil
 			f.mu.Unlock()
 			return

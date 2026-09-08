@@ -70,3 +70,16 @@ to work.
   comments in `internal/binance/feed.go`.
 - Never swallow an unparsable payload silently. Log it. A silent return is
   how a venue-side wire change turns into an empty panel with no explanation.
+
+## Continuity and volume history
+
+A new feed may implement `exchange.TradeContinuity`. Install its reset callback
+before `Run`, invoke it on connection replacement and any detected trade gap or
+regression, and only then deliver new trades. Without that interface the hub
+serves empty per-price history. Preserve source aggressor side, normalize actual
+base units, and deduplicate source IDs. Do not infer aggressor side from price
+movement or confuse aggregate-message counts with taker-order counts.
+
+Use separate Binance market and public stream connections. Sequence-check both
+the live depth chain and buffered deltas replayed after a REST snapshot; a stale
+connection epoch must not publish its snapshot over a newer connection.

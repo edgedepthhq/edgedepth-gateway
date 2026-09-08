@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -19,6 +20,7 @@ import (
 // a missed diff silently corrupts the client's book. Disconnecting instead
 // forces a reconnect and a fresh snapshot, which is recoverable.
 const sendBuffer = 1024
+const sendBytes = 16 << 20 // queued plus currently writing bytes, per client
 
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  4096,
@@ -38,8 +40,9 @@ type Client struct {
 	mu   sync.RWMutex
 	keys map[wire.Key]struct{}
 
-	closeOnce sync.Once
-	done      chan struct{}
+	queuedBytes atomic.Int64
+	closeOnce   sync.Once
+	done        chan struct{}
 }
 
 func newClient(conn *websocket.Conn, log *slog.Logger) *Client {
@@ -56,8 +59,22 @@ func newClient(conn *websocket.Conn, log *slog.Logger) *Client {
 // client is closed rather than allowed to stall the broadcast path.
 func (c *Client) Send(b []byte) {
 	select {
+	case <-c.done:
+		return
+	default:
+	}
+	if c.queuedBytes.Add(int64(len(b))) > sendBytes {
+		c.queuedBytes.Add(-int64(len(b)))
+		c.log.Warn("client byte budget exceeded, closing", "limit", sendBytes)
+		c.close()
+		return
+	}
+	select {
+	case <-c.done:
+		c.queuedBytes.Add(-int64(len(b)))
 	case c.send <- b:
 	default:
+		c.queuedBytes.Add(-int64(len(b)))
 		c.log.Warn("client too slow, closing", "buffered", len(c.send))
 		c.close()
 	}
@@ -123,10 +140,12 @@ type request struct {
 			Exchange string `json:"exchange"`
 			Symbol   string `json:"symbol"`
 		} `json:"pair"`
-		Stream    int32 `json:"stream"`
-		Timeframe int64 `json:"timeframe"`
-		Count     int   `json:"count"`
-		EndTime   int64 `json:"end_time"`
+		Stream     int32   `json:"stream"`
+		Timeframe  int64   `json:"timeframe"`
+		Count      int     `json:"count"`
+		EndTime    int64   `json:"end_time"`
+		StartTime  int64   `json:"start_time"`
+		TickPerRow float64 `json:"tick_per_row"`
 	} `json:"data"`
 }
 
@@ -149,6 +168,7 @@ func (h *Hub) ServeWS(w http.ResponseWriter, r *http.Request) {
 		h.log.Warn("websocket upgrade failed", "err", err)
 		return
 	}
+	conn.SetReadLimit(65536)
 	c := newClient(conn, h.log)
 	h.AddClient(c)
 
@@ -174,7 +194,9 @@ func (c *Client) writeLoop() {
 			return
 		case b := <-c.send:
 			_ = c.conn.SetWriteDeadline(time.Now().Add(20 * time.Second))
-			if err := c.conn.WriteMessage(websocket.BinaryMessage, b); err != nil {
+			err := c.conn.WriteMessage(websocket.BinaryMessage, b)
+			c.queuedBytes.Add(-int64(len(b)))
+			if err != nil {
 				c.close()
 				return
 			}
@@ -231,8 +253,10 @@ func (h *Hub) handle(ctx context.Context, c *Client, req *request) {
 		// stalls every later control message from this client.
 		go h.HistoricalCandles(ctx, c, ex, sym, tf, count, end)
 
-	case "get_footprint_history", "get_volume_profile",
-		"get_historical_heatmap", "get_replay_preview_candles",
+	case "get_footprint_history", "get_volume_profile":
+		h.VolumeHistory(c, req)
+
+	case "get_historical_heatmap", "get_replay_preview_candles",
 		"get_historical_vpin":
 		// Served only by the hosted backend. Staying silent is correct: the
 		// terminal treats these as best-effort and renders without them.
